@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/image_editor/image_editor_result.dart';
+import '../../../core/image_editor/image_editor_service.dart';
 import '../../../core/utils/app_validator.dart';
+import '../../../core/utils/app_input_formatters.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../invoices/model/invoice_item.dart';
@@ -57,16 +62,22 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                AppTextField(
-                  controller: imagePathController,
-                  label: 'product_image_path'.tr,
-                  prefixIcon: const Icon(Icons.image_outlined),
+                _ProductImagePicker(
+                  path: imagePathController.text,
+                  onPick: _pickProductImage,
+                  onClear: () {
+                    imagePathController.clear();
+                    setState(() {});
+                  },
                 ),
                 const SizedBox(height: 12),
                 AppTextField(
                   controller: quantityController,
                   label: 'quantity'.tr,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: AppInputFormatters.decimal,
                   validator: (value) => _positiveValidator(
                     value,
                     fieldName: 'quantity'.tr,
@@ -77,7 +88,10 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                 AppTextField(
                   controller: unitPriceController,
                   label: 'unit_price'.tr,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: AppInputFormatters.decimal,
                   validator: (value) => _positiveValidator(
                     value,
                     fieldName: 'unit_price'.tr,
@@ -122,6 +136,19 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     );
   }
 
+  Future<void> _pickProductImage() async {
+    final path = await ImageEditorService.pickEditAndSave(
+      context: context,
+      folderName: 'product_media',
+      filePrefix: 'product',
+      initialPreset: ImageCropPreset.square,
+    );
+    if (path != null) {
+      imagePathController.text = path;
+      setState(() {});
+    }
+  }
+
   String? _positiveValidator(
     String? value, {
     required String fieldName,
@@ -152,5 +179,67 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     unitPriceController.dispose();
     notesController.dispose();
     super.dispose();
+  }
+}
+
+class _ProductImagePicker extends StatelessWidget {
+  const _ProductImagePicker({
+    required this.path,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final String path;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = path.trim().isNotEmpty && File(path).existsSync();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox.square(
+              dimension: 64,
+              child: hasImage
+                  ? Image.file(File(path), fit: BoxFit.cover)
+                  : ColoredBox(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.image_outlined),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              hasImage ? 'product_image_path'.tr : 'choose_image'.tr,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton.filledTonal(
+            tooltip: 'choose_image'.tr,
+            onPressed: onPick,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+          ),
+          if (path.trim().isNotEmpty) ...[
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: 'clear'.tr,
+              onPressed: onClear,
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }

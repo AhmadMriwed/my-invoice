@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/hive_boxes.dart';
 import '../../../core/storage/hive_service.dart';
+import '../../../core/utils/currency_utils.dart';
 import '../../customers/model/customer.dart';
 import '../../invoices/model/invoice.dart';
 import '../../invoices/model/invoice_item.dart';
@@ -22,8 +23,11 @@ class InvoiceFormController extends GetxController {
   final invoiceDate = DateTime.now().obs;
   final discountController = TextEditingController(text: '0');
   final taxController = TextEditingController(text: '0');
+  final currencyController = TextEditingController();
+  final currencySymbolController = TextEditingController();
   final notesController = TextEditingController();
   final isSaving = false.obs;
+  final currencyVersion = 0.obs;
 
   Invoice? editingInvoice;
   late String invoiceNumber;
@@ -37,6 +41,14 @@ class InvoiceFormController extends GetxController {
       _nonNegative(double.tryParse(taxController.text.trim()) ?? 0);
 
   double get finalTotal => subtotal - discount + tax;
+
+  String get currencySymbol {
+    final value = currencySymbolController.text.trim();
+    return value.isEmpty ? r'$' : value;
+  }
+
+  String formatCurrency(num value) =>
+      CurrencyUtils.format(value, symbol: currencySymbol);
 
   @override
   void onInit() {
@@ -65,6 +77,8 @@ class InvoiceFormController extends GetxController {
       final appSettings = _settingsController.settings.value;
       taxController.text = '${appSettings.defaultTaxPercent}';
       discountController.text = '${appSettings.defaultDiscountPercent}';
+      currencyController.text = appSettings.defaultCurrency;
+      currencySymbolController.text = appSettings.currencySymbol;
       notesController.text = appSettings.notesTemplate;
     }
   }
@@ -81,6 +95,8 @@ class InvoiceFormController extends GetxController {
     items.assignAll(invoice.items);
     discountController.text = invoice.discount.toStringAsFixed(2);
     taxController.text = invoice.tax.toStringAsFixed(2);
+    currencyController.text = invoice.currencyCode;
+    currencySymbolController.text = invoice.currencySymbol;
     notesController.text = invoice.notes;
     final persistedCustomer = customers.firstWhereOrNull(
       (customer) => customer.id == invoice.customerId,
@@ -99,6 +115,11 @@ class InvoiceFormController extends GetxController {
 
   void selectCustomer(Customer? customer) {
     selectedCustomer.value = customer;
+  }
+
+  void refreshCurrency() {
+    currencyVersion.value++;
+    items.refresh();
   }
 
   Future<void> createTemporaryCustomer() async {
@@ -218,6 +239,10 @@ class InvoiceFormController extends GetxController {
       invoiceNumber: invoiceNumber,
       customerId: customer?.id ?? '',
       customerName: customer?.fullName ?? 'walk_in_customer'.tr,
+      currencyCode: currencyController.text.trim().isEmpty
+          ? 'USD'
+          : currencyController.text.trim(),
+      currencySymbol: currencySymbol,
       date: invoiceDate.value,
       createdAt: editingInvoice?.createdAt ?? now,
       updatedAt: now,
@@ -291,6 +316,8 @@ class InvoiceFormController extends GetxController {
   void onClose() {
     discountController.dispose();
     taxController.dispose();
+    currencyController.dispose();
+    currencySymbolController.dispose();
     notesController.dispose();
     super.onClose();
   }

@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/currency_utils.dart';
 import '../../../core/utils/date_time_utils.dart';
+import '../../../core/utils/app_input_formatters.dart';
 import '../../../core/utils/screen_utils.dart';
 import '../../../core/widgets/app_action_button.dart';
 import '../../../core/widgets/app_button.dart';
@@ -13,6 +16,7 @@ import '../../../core/widgets/app_info_tile.dart';
 import '../../../core/widgets/app_navigation_scaffold.dart';
 import '../../../core/widgets/app_section_title.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../../../core/widgets/currency_selector.dart';
 import '../../customers/model/customer.dart';
 import '../../invoices/model/invoice_item.dart';
 import '../controller/invoice_form_controller.dart';
@@ -76,15 +80,16 @@ class InvoiceFormView extends GetView<InvoiceFormController> {
             return content;
           }
 
+
           return Stack(
             children: [
               content,
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 12,
-                child: _MobileTotalsBar(controller: controller),
-              ),
+              // Positioned(
+              //   left: 12,
+              //   right: 12,
+              //   bottom: 12,
+              //   child: _MobileTotalsBar(controller: controller),
+              // ),
             ],
           );
         },
@@ -100,6 +105,7 @@ class _InvoiceDocument extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = ScreenUtils.isDesktop(context);
     return Column(
       children: [
         _DocumentHeader(controller: controller),
@@ -116,6 +122,8 @@ class _InvoiceDocument extends StatelessWidget {
             children: [
               _DateSection(controller: controller),
               const SizedBox(height: 16),
+              _CurrencySection(controller: controller),
+              const SizedBox(height: 16),
               _NotesSection(controller: controller),
             ],
           ),
@@ -126,6 +134,9 @@ class _InvoiceDocument extends StatelessWidget {
         ],
         const SizedBox(height: 16),
         _ProductsSection(controller: controller),
+        const SizedBox(height: 20),
+        if(!isDesktop)
+        _MobileTotalsBar(controller: controller),
         const SizedBox(height: 20),
         Obx(
           () => AppButton(
@@ -449,7 +460,12 @@ class _ProductTable extends StatelessWidget {
       rows: controller.items.map((item) {
         return DataRow(
           cells: [
-            DataCell(_ProductImagePlaceholder(name: item.name)),
+            DataCell(
+              _ProductImagePlaceholder(
+                name: item.name,
+                imagePath: item.imagePath,
+              ),
+            ),
             DataCell(
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -474,9 +490,13 @@ class _ProductTable extends StatelessWidget {
                   SizedBox(
                     width: 64,
                     child: TextFormField(
+                      key: ValueKey('quantity-${item.id}-${item.safeQuantity}'),
                       initialValue: item.safeQuantity.toStringAsFixed(2),
                       textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: AppInputFormatters.decimal,
                       decoration: const InputDecoration(
                         isDense: true,
                         contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -492,12 +512,12 @@ class _ProductTable extends StatelessWidget {
                 ],
               ),
             ),
-            DataCell(Text(CurrencyUtils.format(item.safeUnitPrice))),
+            DataCell(Text(controller.formatCurrency(item.safeUnitPrice))),
             DataCell(
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 child: Text(
-                  CurrencyUtils.format(item.total),
+                  controller.formatCurrency(item.total),
                   key: ValueKey(item.total),
                 ),
               ),
@@ -524,7 +544,7 @@ class _ProductCard extends StatelessWidget {
       hoverable: true,
       child: Row(
         children: [
-          _ProductImagePlaceholder(name: item.name),
+          _ProductImagePlaceholder(name: item.name, imagePath: item.imagePath),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -533,7 +553,7 @@ class _ProductCard extends StatelessWidget {
                 Text(item.name, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 4),
                 Text(
-                  '${item.safeQuantity} x ${CurrencyUtils.format(item.safeUnitPrice)}',
+                  '${item.safeQuantity} x ${controller.formatCurrency(item.safeUnitPrice)}',
                 ),
               ],
             ),
@@ -544,7 +564,7 @@ class _ProductCard extends StatelessWidget {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 child: Text(
-                  CurrencyUtils.format(item.total),
+                  controller.formatCurrency(item.total),
                   key: ValueKey(item.total),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
@@ -614,6 +634,24 @@ class _DateSection extends StatelessWidget {
   }
 }
 
+class _CurrencySection extends StatelessWidget {
+  const _CurrencySection({required this.controller});
+
+  final InvoiceFormController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'currency'.tr,
+      child: CurrencySelector(
+        currencyController: controller.currencyController,
+        symbolController: controller.currencySymbolController,
+        onChanged: controller.refreshCurrency,
+      ),
+    );
+  }
+}
+
 class _NotesSection extends StatelessWidget {
   const _NotesSection({required this.controller});
 
@@ -647,7 +685,10 @@ class _TotalsAdjustmentsSection extends StatelessWidget {
             child: AppTextField(
               controller: controller.discountController,
               label: 'discount'.tr,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: AppInputFormatters.decimal,
               onChanged: (_) => controller.items.refresh(),
             ),
           ),
@@ -656,7 +697,10 @@ class _TotalsAdjustmentsSection extends StatelessWidget {
             child: AppTextField(
               controller: controller.taxController,
               label: 'tax'.tr,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: AppInputFormatters.decimal,
               onChanged: (_) => controller.items.refresh(),
             ),
           ),
@@ -742,34 +786,50 @@ class _TotalsContent extends StatelessWidget {
           AppTextField(
             controller: controller.discountController,
             label: 'discount'.tr,
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: AppInputFormatters.decimal,
             onChanged: (_) => controller.items.refresh(),
           ),
           const SizedBox(height: 12),
           AppTextField(
             controller: controller.taxController,
             label: 'tax'.tr,
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: AppInputFormatters.decimal,
             onChanged: (_) => controller.items.refresh(),
           ),
           const SizedBox(height: 16),
         ],
-        Obx(
-          () => Column(
+        Obx(() {
+          controller.currencyVersion.value;
+          return Column(
             children: [
-              _TotalLine(label: 'subtotal'.tr, value: controller.subtotal),
+              _TotalLine(
+                label: 'subtotal'.tr,
+                value: controller.subtotal,
+                symbol: controller.currencySymbol,
+              ),
               if (!compact) ...[
-                _TotalLine(label: 'discount'.tr, value: controller.discount),
-                _TotalLine(label: 'tax'.tr, value: controller.tax),
+                _TotalLine(
+                  label: 'discount'.tr,
+                  value: controller.discount,
+                  symbol: controller.currencySymbol,
+                ),
+                _TotalLine(
+                  label: 'tax'.tr,
+                  value: controller.tax,
+                  symbol: controller.currencySymbol,
+                ),
               ],
               _TotalLine(
                 label: 'final_total'.tr,
                 value: controller.finalTotal,
+                symbol: controller.currencySymbol,
                 isStrong: true,
               ),
             ],
-          ),
-        ),
+          );
+        }),
         const SizedBox(height: 12),
         AppActionButton(
           icon: Icons.picture_as_pdf_outlined,
@@ -786,11 +846,13 @@ class _TotalLine extends StatelessWidget {
   const _TotalLine({
     required this.label,
     required this.value,
+    required this.symbol,
     this.isStrong = false,
   });
 
   final String label;
   final double value;
+  final String symbol;
   final bool isStrong;
 
   @override
@@ -806,8 +868,8 @@ class _TotalLine extends StatelessWidget {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             child: Text(
-              CurrencyUtils.format(value),
-              key: ValueKey('$label$value'),
+              CurrencyUtils.format(value, symbol: symbol),
+              key: ValueKey('$label$value$symbol'),
               style: style,
             ),
           ),
@@ -818,13 +880,20 @@ class _TotalLine extends StatelessWidget {
 }
 
 class _ProductImagePlaceholder extends StatelessWidget {
-  const _ProductImagePlaceholder({required this.name});
+  const _ProductImagePlaceholder({required this.name, this.imagePath = ''});
 
   final String name;
+  final String imagePath;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final file = imagePath.trim().isEmpty ? null : File(imagePath.trim());
+    if (file != null && file.existsSync()) {
+      return ClipOval(
+        child: Image.file(file, width: 42, height: 42, fit: BoxFit.cover),
+      );
+    }
     return CircleAvatar(
       backgroundColor: colorScheme.secondaryContainer,
       child: Text(

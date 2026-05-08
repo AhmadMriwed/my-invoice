@@ -12,6 +12,8 @@ class Invoice {
     required this.items,
     this.customerId = '',
     this.customerName = '',
+    this.currencyCode = 'USD',
+    this.currencySymbol = r'$',
     this.status = InvoiceStatus.saved,
     this.discount = 0,
     this.tax = 0,
@@ -26,6 +28,8 @@ class Invoice {
       invoiceNumber: map['invoiceNumber']?.toString() ?? '',
       customerId: map['customerId']?.toString() ?? '',
       customerName: map['customerName']?.toString() ?? '',
+      currencyCode: map['currencyCode']?.toString() ?? 'USD',
+      currencySymbol: map['currencySymbol']?.toString() ?? r'$',
       date: DateTime.tryParse(map['date']?.toString() ?? '') ?? DateTime.now(),
       createdAt:
           DateTime.tryParse(map['createdAt']?.toString() ?? '') ??
@@ -62,6 +66,8 @@ class Invoice {
       'invoiceNumber': invoiceNumber,
       'customerId': customerId,
       'customerName': customerName,
+      'currencyCode': currencyCode,
+      'currencySymbol': currencySymbol,
       'date': date.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -78,6 +84,8 @@ class Invoice {
     String? invoiceNumber,
     String? customerId,
     String? customerName,
+    String? currencyCode,
+    String? currencySymbol,
     DateTime? date,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -92,6 +100,8 @@ class Invoice {
       invoiceNumber: invoiceNumber ?? this.invoiceNumber,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
+      currencyCode: currencyCode ?? this.currencyCode,
+      currencySymbol: currencySymbol ?? this.currencySymbol,
       date: date ?? this.date,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -114,6 +124,8 @@ class Invoice {
   final String invoiceNumber;
   final String customerId;
   final String customerName;
+  final String currencyCode;
+  final String currencySymbol;
   final DateTime date;
   final DateTime createdAt;
   final DateTime updatedAt;

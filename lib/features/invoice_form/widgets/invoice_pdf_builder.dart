@@ -1,8 +1,10 @@
-import 'dart:typed_data';
+import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/constants/app_images.dart';
 import '../../../core/pdf/pdf_font_loader.dart';
 import '../../../core/pdf/pdf_options.dart';
 import '../../../core/utils/currency_utils.dart';
@@ -46,6 +48,7 @@ class InvoicePdfBuilder {
     final compact =
         appSettings.compactPdfMode || paperSize == PaperSizeOption.thermal;
     final scale = appSettings.fontSizeScale;
+    final logoImage = await _loadLogoImage(shop.logoPath);
 
     pdf.addPage(
       pw.MultiPage(
@@ -85,14 +88,25 @@ class InvoicePdfBuilder {
                           color: colors.accent,
                           borderRadius: pw.BorderRadius.circular(13),
                         ),
-                        child: pw.Text(
-                          shopInitial,
-                          style: pw.TextStyle(
-                            color: PdfColors.white,
-                            fontSize: 22,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
+                        child: logoImage == null
+                            ? pw.Text(
+                                shopInitial,
+                                style: pw.TextStyle(
+                                  color: PdfColors.white,
+                                  fontSize: 22,
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              )
+                            : pw.ClipRRect(
+                                horizontalRadius: 13,
+                                verticalRadius: 13,
+                                child: pw.Image(
+                                  logoImage,
+                                  fit: pw.BoxFit.cover,
+                                  width: compact ? 34 : 50,
+                                  height: compact ? 34 : 50,
+                                ),
+                              ),
                       ),
                     if (appSettings.showLogoInPdf) pw.SizedBox(width: 14),
                     pw.Column(
@@ -174,7 +188,9 @@ class InvoicePdfBuilder {
             ],
           ),
           pw.SizedBox(height: compact ? 12 : 24),
+
           pw.TableHelper.fromTextArray(
+            // headerAlignment: pw.AlignmentDirectional.centerEnd,
             headers: [
               labels.product,
               labels.qty,
@@ -186,8 +202,14 @@ class InvoicePdfBuilder {
                   (item) => [
                     item.name,
                     item.safeQuantity.toStringAsFixed(2),
-                    CurrencyUtils.format(item.safeUnitPrice),
-                    CurrencyUtils.format(item.total),
+                    CurrencyUtils.format(
+                      item.safeUnitPrice,
+                      symbol: invoice.currencySymbol,
+                    ),
+                    CurrencyUtils.format(
+                      item.total,
+                      symbol: invoice.currencySymbol,
+                    ),
                   ],
                 )
                 .toList(),
@@ -203,21 +225,23 @@ class InvoicePdfBuilder {
               ),
               bottom: pw.BorderSide(color: colors.divider),
             ),
-            cellAlignment: pw.Alignment.centerLeft,
+            headerAlignment: pw.AlignmentDirectional.center,
+            cellAlignment: pw.AlignmentDirectional.center,
+
             cellPadding: pw.EdgeInsets.symmetric(
               vertical: compact ? 6 : 11,
               horizontal: compact ? 5 : 10,
             ),
             cellStyle: pw.TextStyle(color: colors.bodyText),
             cellAlignments: {
-              1: pw.Alignment.centerRight,
-              2: pw.Alignment.centerRight,
-              3: pw.Alignment.centerRight,
+              1: pw.AlignmentDirectional.centerStart,
+              2: pw.AlignmentDirectional.centerStart,
+              3: pw.AlignmentDirectional.centerStart,
             },
           ),
           pw.SizedBox(height: compact ? 12 : 24),
           pw.Align(
-            alignment: pw.Alignment.centerRight,
+            alignment: pw.AlignmentDirectional.centerStart,
             child: pw.Container(
               width: paperSize == PaperSizeOption.thermal ? 180 : 255,
               padding: pw.EdgeInsets.all(compact ? 10 : 16),
@@ -228,18 +252,30 @@ class InvoicePdfBuilder {
               ),
               child: pw.Column(
                 children: [
-                  _totalRow(labels.subtotal, invoice.subtotal, colors: colors),
+                  _totalRow(
+                    labels.subtotal,
+                    invoice.subtotal,
+                    colors: colors,
+                    symbol: invoice.currencySymbol,
+                  ),
                   _totalRow(
                     labels.discount,
                     invoice.safeDiscount,
                     colors: colors,
+                    symbol: invoice.currencySymbol,
                   ),
-                  _totalRow(labels.tax, invoice.safeTax, colors: colors),
+                  _totalRow(
+                    labels.tax,
+                    invoice.safeTax,
+                    colors: colors,
+                    symbol: invoice.currencySymbol,
+                  ),
                   pw.Divider(color: colors.divider),
                   _totalRow(
                     labels.finalTotal,
                     invoice.finalTotal,
                     colors: colors,
+                    symbol: invoice.currencySymbol,
                     isStrong: true,
                   ),
                 ],
@@ -274,6 +310,38 @@ class InvoicePdfBuilder {
       return pw.SizedBox();
     }
     return pw.Text(value, style: pw.TextStyle(color: colors.headerMuted));
+  }
+
+  static Future<pw.ImageProvider?> _loadLogoImage(String logoPath) async {
+    final path = logoPath.trim().isEmpty
+        ? AppImages.defaultShopLogo
+        : logoPath.trim();
+    if (!path.startsWith('assets/')) {
+      try {
+        final file = File(path);
+        if (!await file.exists()) {
+          return null;
+        }
+        return pw.MemoryImage(await file.readAsBytes());
+      } catch (_) {
+        return null;
+      }
+    }
+
+    try {
+      final data = await rootBundle.load(path);
+      return pw.MemoryImage(data.buffer.asUint8List());
+    } catch (_) {
+      if (path == AppImages.defaultShopLogo) {
+        return null;
+      }
+      try {
+        final data = await rootBundle.load(AppImages.defaultShopLogo);
+        return pw.MemoryImage(data.buffer.asUint8List());
+      } catch (_) {
+        return null;
+      }
+    }
   }
 
   static pw.Widget _partyBlock({
@@ -312,6 +380,7 @@ class InvoicePdfBuilder {
     String label,
     double value, {
     required _PdfThemeColors colors,
+    String symbol = r'$',
     bool isStrong = false,
   }) {
     final style = pw.TextStyle(
@@ -325,7 +394,7 @@ class InvoicePdfBuilder {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
           pw.Text(label, style: style),
-          pw.Text(CurrencyUtils.format(value), style: style),
+          pw.Text(CurrencyUtils.format(value, symbol: symbol), style: style),
         ],
       ),
     );
@@ -378,37 +447,39 @@ class _PdfThemeColors {
   factory _PdfThemeColors.fromTheme(InvoicePdfTheme theme) {
     return switch (theme) {
       InvoicePdfTheme.modern => const _PdfThemeColors(
-        accent: PdfColor.fromInt(0xFF2563EB),
-        headerBackground: PdfColor.fromInt(0xFFF3F7FF),
-        headerText: PdfColor.fromInt(0xFF111827),
-        headerMuted: PdfColor.fromInt(0xFF475569),
-        bodyText: PdfColor.fromInt(0xFF111827),
-        mutedText: PdfColor.fromInt(0xFF64748B),
-        divider: PdfColor.fromInt(0xFFE2E8F0),
-        tableHeader: PdfColor.fromInt(0xFFEFF6FF),
-        totalBackground: PdfColor.fromInt(0xFFF8FAFC),
+        accent: PdfColor.fromInt(0xFF000000),
+        // accent: PdfColor.fromInt(0xFF8A8A8A),
+        // accent: PdfColor.fromInt(0xFFD4A64A),
+        headerBackground: PdfColor.fromInt(0xFF17181C),
+        headerText: PdfColors.white,
+        headerMuted: PdfColor.fromInt(0xFFF4D28C),
+        bodyText: PdfColor.fromInt(0xFF1A1A1A),
+        mutedText: PdfColor.fromInt(0xFF8A8A8A),
+        divider: PdfColor.fromInt(0xFFE7E0D4),
+        tableHeader: PdfColor.fromInt(0xFFFFF4D6),
+        totalBackground: PdfColor.fromInt(0xFFF7F5F1),
       ),
       InvoicePdfTheme.minimal => const _PdfThemeColors(
-        accent: PdfColor.fromInt(0xFF111827),
+        accent: PdfColor.fromInt(0xFF000000),
         headerBackground: PdfColors.white,
-        headerText: PdfColor.fromInt(0xFF111827),
-        headerMuted: PdfColor.fromInt(0xFF6B7280),
-        bodyText: PdfColor.fromInt(0xFF111827),
-        mutedText: PdfColor.fromInt(0xFF6B7280),
-        divider: PdfColor.fromInt(0xFFD1D5DB),
-        tableHeader: PdfColor.fromInt(0xFFF9FAFB),
+        headerText: PdfColor.fromInt(0xFF1A1A1A),
+        headerMuted: PdfColor.fromInt(0xFF8A8A8A),
+        bodyText: PdfColor.fromInt(0xFF1A1A1A),
+        mutedText: PdfColor.fromInt(0xFF8A8A8A),
+        divider: PdfColor.fromInt(0xFFE7E0D4),
+        tableHeader: PdfColor.fromInt(0xFFF7F5F1),
         totalBackground: PdfColors.white,
       ),
       InvoicePdfTheme.dark => const _PdfThemeColors(
-        accent: PdfColor.fromInt(0xFF14B8A6),
-        headerBackground: PdfColor.fromInt(0xFF111827),
+        accent: PdfColor.fromInt(0xFF1E88E5),
+        headerBackground: PdfColor.fromInt(0xFF0B0B0D),
         headerText: PdfColors.white,
-        headerMuted: PdfColor.fromInt(0xFFCBD5E1),
-        bodyText: PdfColor.fromInt(0xFF111827),
-        mutedText: PdfColor.fromInt(0xFF64748B),
-        divider: PdfColor.fromInt(0xFFE2E8F0),
-        tableHeader: PdfColor.fromInt(0xFFE0F2FE),
-        totalBackground: PdfColor.fromInt(0xFFF0FDFA),
+        headerMuted: PdfColor.fromInt(0xFFF4D28C),
+        bodyText: PdfColor.fromInt(0xFF1A1A1A),
+        mutedText: PdfColor.fromInt(0xFF8A8A8A),
+        divider: PdfColor.fromInt(0xFFE7E0D4),
+        tableHeader: PdfColor.fromInt(0xFFFFF4D6),
+        totalBackground: PdfColor.fromInt(0xFFF7F5F1),
       ),
     };
   }

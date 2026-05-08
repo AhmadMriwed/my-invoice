@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_colors.dart';
+
 class AppCard extends StatefulWidget {
   const AppCard({
     required this.child,
@@ -26,6 +28,7 @@ class _AppCardState extends State<AppCard> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final card = AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
@@ -39,8 +42,12 @@ class _AppCardState extends State<AppCard> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: _isHovered ? 0.10 : 0.055),
-            blurRadius: _isHovered ? 24 : 14,
+            color: isDark
+                ? AppColors.primary.withValues(alpha: _isHovered ? 0.16 : 0.08)
+                : AppColors.goldDark.withValues(
+                    alpha: _isHovered ? 0.13 : 0.07,
+                  ),
+            blurRadius: _isHovered ? 26 : 16,
             offset: Offset(0, _isHovered ? 12 : 8),
           ),
         ],
@@ -69,3 +76,4 @@ class _AppCardState extends State<AppCard> {
     setState(() => _isHovered = value);
   }
 }
+

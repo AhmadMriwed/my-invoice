@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/routes/app_routes.dart';
+import '../../../core/utils/app_input_formatters.dart';
 import '../../../core/utils/app_validator.dart';
 import '../../../core/utils/screen_utils.dart';
 import '../../../core/widgets/app_button.dart';
@@ -37,7 +40,7 @@ class ShopView extends GetView<ShopController> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 24),
-                      _LogoPicker(controller: controller),
+                      _MediaPickers(controller: controller),
                       const SizedBox(height: 24),
                       _ResponsiveFormGrid(
                         children: [
@@ -67,6 +70,8 @@ class ShopView extends GetView<ShopController> {
                           AppTextField(
                             controller: controller.taxNumberController,
                             label: 'tax_number'.tr,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: AppInputFormatters.digitsOnly,
                           ),
                           AppTextField(
                             controller: controller.currencyController,
@@ -105,44 +110,159 @@ class ShopView extends GetView<ShopController> {
   }
 }
 
-class _LogoPicker extends StatelessWidget {
-  const _LogoPicker({required this.controller});
+class _MediaPickers extends StatelessWidget {
+  const _MediaPickers({required this.controller});
 
   final ShopController controller;
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = ScreenUtils.isDesktop(context);
+    final children = [
+      Obx(
+        () => _ImagePickerCard(
+          title: 'shop_logo'.tr,
+          imagePath: controller.logoPreviewPath.value,
+          aspectRatio: 1,
+          onPick: () => controller.pickLogoImage(context),
+          onUseDefault: controller.useLogoPlaceholder,
+        ),
+      ),
+      Obx(
+        () => _ImagePickerCard(
+          title: 'shop_cover'.tr,
+          imagePath: controller.coverPreviewPath.value,
+          aspectRatio: 2.8,
+          onPick: () => controller.pickCoverImage(context),
+          onUseDefault: controller.useCoverPlaceholder,
+        ),
+      ),
+    ];
+
+    if (!isDesktop) {
+      return Column(
+        children: [children.first, const SizedBox(height: 16), children.last],
+      );
+    }
+
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Icon(
-            Icons.storefront_outlined,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
-            size: 36,
-          ),
-        ),
+        Expanded(child: children.first),
         const SizedBox(width: 16),
-        Expanded(
-          child: AppTextField(
-            controller: controller.logoPathController,
-            label: 'logo_image_path'.tr,
+        Expanded(child: children.last),
+      ],
+    );
+  }
+}
+
+class _ImagePickerCard extends StatelessWidget {
+  const _ImagePickerCard({
+    required this.title,
+    required this.imagePath,
+    required this.aspectRatio,
+    required this.onPick,
+    required this.onUseDefault,
+  });
+
+  final String title;
+  final String imagePath;
+  final double aspectRatio;
+  final VoidCallback onPick;
+  final VoidCallback onUseDefault;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 10),
+        AspectRatio(
+          aspectRatio: aspectRatio,
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.25),
+              ),
+            ),
+            child: _PickedImage(path: imagePath),
           ),
         ),
-        const SizedBox(width: 12),
-        IconButton.filledTonal(
-          tooltip: 'use_placeholder_logo'.tr,
-          onPressed: controller.useLogoPlaceholder,
-          icon: const Icon(Icons.image_outlined),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: onPick,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text('choose_image'.tr),
+            ),
+            TextButton.icon(
+              onPressed: onUseDefault,
+              icon: const Icon(Icons.restart_alt_outlined),
+              label: Text('use_default_image'.tr),
+            ),
+          ],
         ),
       ],
     );
   }
+}
+
+class _PickedImage extends StatelessWidget {
+  const _PickedImage({required this.path});
+
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    final file = path.startsWith('assets/') ? null : File(path);
+    final image = path.startsWith('assets/')
+        ? Image.asset(path, fit: BoxFit.contain)
+        : file?.existsSync() ?? false
+        ? Image.file(file!, fit: BoxFit.contain)
+        : Icon(
+            Icons.broken_image_outlined,
+            color: Theme.of(context).colorScheme.primary,
+            size: 38,
+          );
+
+    return CustomPaint(
+      painter: const CheckerboardPainter(),
+      child: Center(child: image),
+    );
+  }
+}
+
+class CheckerboardPainter extends CustomPainter {
+  const CheckerboardPainter();
+
+  static const double _size = 14;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final light = Paint()..color = const Color(0xFFFFFFFF);
+    final dark = Paint()..color = const Color(0xFFE5E5E5);
+    canvas.drawRect(Offset.zero & size, light);
+
+    for (double y = 0; y < size.height; y += _size) {
+      for (double x = 0; x < size.width; x += _size) {
+        final isDark = ((x / _size).floor() + (y / _size).floor()).isEven;
+        if (isDark) {
+          canvas.drawRect(Rect.fromLTWH(x, y, _size, _size), dark);
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ResponsiveFormGrid extends StatelessWidget {

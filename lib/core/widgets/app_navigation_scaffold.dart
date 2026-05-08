@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../constants/app_colors.dart';
 import '../routes/app_routes.dart';
 import '../utils/screen_utils.dart';
 
@@ -11,6 +12,7 @@ class AppNavigationScaffold extends StatelessWidget {
     this.title,
     this.actions,
     this.floatingActionButton,
+    this.onBeforeNavigate,
     super.key,
   });
 
@@ -19,6 +21,7 @@ class AppNavigationScaffold extends StatelessWidget {
   final String? title;
   final List<Widget>? actions;
   final Widget? floatingActionButton;
+  final Future<bool> Function()? onBeforeNavigate;
 
   static const _items = [
     _NavigationItem(
@@ -113,10 +116,32 @@ class AppNavigationScaffold extends StatelessWidget {
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         selectedIndex: safeIndex,
         onDestinationSelected: (index) => _goTo(_items[index].route),
-        destinations: _items
+
+        destinations:
+        List.generate(
+          _items.length,
+              (index) {
+            final item = _items[index];
+            final isSelected = safeIndex == index;
+
+            return NavigationDestination(
+              icon: Icon(
+                item.icon,
+                color: isSelected
+                    ? Colors.white
+                    : Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant,
+              ),
+
+              label: item.label.tr,
+            );
+          },
+        )??
+        _items
             .map(
               (item) => NavigationDestination(
-                icon: Icon(item.icon),
+                icon: Icon(item.icon,),
                 label: item.label.tr,
               ),
             )
@@ -125,8 +150,12 @@ class AppNavigationScaffold extends StatelessWidget {
     );
   }
 
-  void _goTo(String route) {
+  Future<void> _goTo(String route) async {
     if (Get.currentRoute != route) {
+      final canNavigate = await onBeforeNavigate?.call() ?? true;
+      if (!canNavigate) {
+        return;
+      }
       Get.offNamed(route);
     }
   }
@@ -152,12 +181,19 @@ class _DesktopSidebar extends StatelessWidget {
       width: isExpanded ? 256 : 92,
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppColors.darkCard
+            : colorScheme.surface,
         border: Border(
-          right: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.7),
-          ),
+          right: BorderSide(color: colorScheme.primary.withValues(alpha: 0.18)),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.06),
+            blurRadius: 22,
+            offset: const Offset(4, 0),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -265,9 +301,12 @@ class _SidebarItem extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: isSelected
-                ? colorScheme.primaryContainer
+                ? colorScheme.primary.withValues(alpha: 0.18)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
+            border: isSelected
+                ? Border.all(color: colorScheme.primary.withValues(alpha: 0.35))
+                : null,
           ),
           child: Row(
             mainAxisAlignment: isExpanded
@@ -277,7 +316,7 @@ class _SidebarItem extends StatelessWidget {
               Icon(
                 item.icon,
                 color: isSelected
-                    ? colorScheme.onPrimaryContainer
+                    ? colorScheme.primary
                     : colorScheme.onSurfaceVariant,
               ),
               if (isExpanded) ...[
@@ -287,7 +326,7 @@ class _SidebarItem extends StatelessWidget {
                     item.label.tr,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: isSelected
-                          ? colorScheme.onPrimaryContainer
+                          ? colorScheme.primary
                           : colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -312,8 +351,9 @@ class _ProfilePlaceholder extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        color: colorScheme.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisAlignment: isExpanded

@@ -95,17 +95,35 @@ class _Details extends StatelessWidget {
                         ListTile(
                           title: Text(item.name),
                           subtitle: Text(
-                            '${item.safeQuantity} x ${CurrencyUtils.format(item.safeUnitPrice)}',
+                            '${item.safeQuantity} x ${CurrencyUtils.format(item.safeUnitPrice, symbol: invoice.currencySymbol)}',
                           ),
-                          trailing: Text(CurrencyUtils.format(item.total)),
+                          trailing: Text(
+                            CurrencyUtils.format(
+                              item.total,
+                              symbol: invoice.currencySymbol,
+                            ),
+                          ),
                         ),
                       const Divider(),
-                      _TotalLine(label: 'subtotal'.tr, value: invoice.subtotal),
-                      _TotalLine(label: 'discount'.tr, value: invoice.discount),
-                      _TotalLine(label: 'tax'.tr, value: invoice.tax),
+                      _TotalLine(
+                        label: 'subtotal'.tr,
+                        value: invoice.subtotal,
+                        symbol: invoice.currencySymbol,
+                      ),
+                      _TotalLine(
+                        label: 'discount'.tr,
+                        value: invoice.discount,
+                        symbol: invoice.currencySymbol,
+                      ),
+                      _TotalLine(
+                        label: 'tax'.tr,
+                        value: invoice.tax,
+                        symbol: invoice.currencySymbol,
+                      ),
                       _TotalLine(
                         label: 'final_total'.tr,
                         value: invoice.finalTotal,
+                        symbol: invoice.currencySymbol,
                         isStrong: true,
                       ),
                     ],
@@ -124,11 +142,13 @@ class _TotalLine extends StatelessWidget {
   const _TotalLine({
     required this.label,
     required this.value,
+    required this.symbol,
     this.isStrong = false,
   });
 
   final String label;
   final double value;
+  final String symbol;
   final bool isStrong;
 
   @override
@@ -141,7 +161,7 @@ class _TotalLine extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(label, style: style)),
-          Text(CurrencyUtils.format(value), style: style),
+          Text(CurrencyUtils.format(value, symbol: symbol), style: style),
         ],
       ),
     );

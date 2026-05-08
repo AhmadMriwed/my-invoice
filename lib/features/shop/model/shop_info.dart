@@ -10,6 +10,7 @@ class ShopInfo {
     this.address = '',
     this.taxNumber = '',
     this.logoPath = '',
+    this.coverPath = '',
     this.currency = r'$',
     this.notes = '',
   });
@@ -31,6 +32,7 @@ class ShopInfo {
       address: map['address']?.toString() ?? '',
       taxNumber: map['taxNumber']?.toString() ?? '',
       logoPath: map['logoPath']?.toString() ?? '',
+      coverPath: map['coverPath']?.toString() ?? '',
       currency: map['currency']?.toString() ?? r'$',
       notes: map['notes']?.toString() ?? '',
     );
@@ -48,6 +50,7 @@ class ShopInfo {
       'address': address,
       'taxNumber': taxNumber,
       'logoPath': logoPath,
+      'coverPath': coverPath,
       'currency': currency,
       'notes': notes,
     };
@@ -64,6 +67,7 @@ class ShopInfo {
     String? address,
     String? taxNumber,
     String? logoPath,
+    String? coverPath,
     String? currency,
     String? notes,
   }) {
@@ -78,6 +82,7 @@ class ShopInfo {
       address: address ?? this.address,
       taxNumber: taxNumber ?? this.taxNumber,
       logoPath: logoPath ?? this.logoPath,
+      coverPath: coverPath ?? this.coverPath,
       currency: currency ?? this.currency,
       notes: notes ?? this.notes,
     );
@@ -93,6 +98,7 @@ class ShopInfo {
   final String address;
   final String taxNumber;
   final String logoPath;
+  final String coverPath;
   final String currency;
   final String notes;
 }

@@ -4,10 +4,14 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:path_provider/path_provider.dart';
 
+import '../../../core/constants/app_images.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/hive_boxes.dart';
 import '../../../core/storage/hive_service.dart';
+import '../../invoices/model/invoice.dart';
+import '../../invoices/model/invoice_item.dart';
+import '../../shop/controller/shop_controller.dart';
 import '../../shop/model/shop_info.dart';
 import '../model/app_settings.dart';
 
@@ -22,6 +26,10 @@ class SettingsController extends GetxController {
   final isImporting = false.obs;
   final isClearing = false.obs;
   final isResetting = false.obs;
+  final isApplyingDefaultProfile = false.obs;
+  final hasUnsavedChanges = false.obs;
+  late AppSettings _savedSettings;
+  bool _syncingControllers = false;
 
   final businessNameController = TextEditingController();
   final defaultCurrencyController = TextEditingController();
@@ -44,8 +52,10 @@ class SettingsController extends GetxController {
   void loadSettings() {
     final raw = _hiveService.settingsBox.get(HiveBoxes.settings);
     settings.value = AppSettings.fromMap(raw as Map<dynamic, dynamic>?);
+    _savedSettings = settings.value;
     _syncControllers();
     _applyRuntimeSettings();
+    hasUnsavedChanges.value = false;
   }
 
   Future<void> saveSettings(
@@ -55,8 +65,10 @@ class SettingsController extends GetxController {
     isSaving.value = true;
     settings.value = next;
     await _hiveService.settingsBox.put(HiveBoxes.settings, next.toMap());
+    _savedSettings = next;
     _syncControllers();
     _applyRuntimeSettings();
+    hasUnsavedChanges.value = false;
     isSaving.value = false;
     if (showSnackbar) {
       Get.snackbar('saved'.tr, 'business_settings_saved'.tr);
@@ -104,6 +116,81 @@ class SettingsController extends GetxController {
     await saveSettings(next);
   }
 
+  Future<bool> confirmDiscardChanges() async {
+    if (!hasUnsavedChanges.value) {
+      return true;
+    }
+    final result = await Get.dialog<String>(
+      AlertDialog(
+        title: Text('unsaved_settings_title'.tr),
+        content: Text('unsaved_settings_message'.tr),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: 'stay'),
+            child: Text('cancel'.tr),
+          ),
+          TextButton(
+            onPressed: () => Get.back(result: 'discard'),
+            child: Text('discard'.tr),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: 'save'),
+            child: Text('save'.tr),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'save') {
+      await saveFromForm();
+      return true;
+    }
+    if (result == 'discard') {
+      settings.value = _savedSettings;
+      _syncControllers();
+      _applyRuntimeSettings();
+      hasUnsavedChanges.value = false;
+      return true;
+    }
+    return false;
+  }
+
+  void previewDefaultInvoice() {
+    final now = DateTime.now();
+    final invoice = Invoice(
+      id: 'preview-default-invoice',
+      invoiceNumber: settings.value.formatInvoiceNumber(),
+      customerName: 'walk_in_customer'.tr,
+      currencyCode: settings.value.defaultCurrency,
+      currencySymbol: settings.value.currencySymbol,
+      date: now,
+      createdAt: now,
+      updatedAt: now,
+      items: [
+        InvoiceItem(
+          id: 'preview-item-1',
+          name: 'طاقة شمسية',
+          createdAt: now,
+          updatedAt: now,
+          quantity: 1,
+          unitPrice: 250000,
+        ),
+        InvoiceItem(
+          id: 'preview-item-2',
+          name: 'إنارة داخلية',
+          createdAt: now,
+          updatedAt: now,
+          quantity: 2,
+          unitPrice: 45000,
+        ),
+      ],
+      discount: _double(defaultDiscountController.text, 0),
+      tax: _double(defaultTaxController.text, 0),
+      notes: notesTemplateController.text.trim(),
+    );
+    Get.toNamed(AppRoutes.pdfPreview, arguments: invoice);
+  }
+
   String allocateInvoiceNumber() => settings.value.formatInvoiceNumber();
 
   Future<void> markInvoiceNumberUsed(String invoiceNumber) async {
@@ -136,19 +223,11 @@ class SettingsController extends GetxController {
       );
 
       if (pickedPath != null) {
-        final file = File(pickedPath);
-        if (!await file.exists()) {
-          await file.writeAsBytes(bytes);
-        }
         Get.snackbar('backup_exported'.tr, pickedPath);
         return pickedPath;
       }
 
-      final directory = await getApplicationDocumentsDirectory();
-      final fallbackPath = '${directory.path}/$fileName';
-      await File(fallbackPath).writeAsString(raw);
-      Get.snackbar('backup_exported'.tr, fallbackPath);
-      return fallbackPath;
+      return null;
     } finally {
       isExporting.value = false;
     }
@@ -272,11 +351,81 @@ class SettingsController extends GetxController {
     Get.snackbar('reset'.tr, 'settings_reset_message'.tr);
   }
 
+  Future<void> applyDefaultBusinessProfile() async {
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        icon: const Icon(Icons.storefront_outlined),
+        title: Text('quick_setup'.tr),
+        content: Text('apply_default_store_information_question'.tr),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text('cancel'.tr),
+          ),
+          FilledButton.icon(
+            onPressed: () => Get.back(result: true),
+            icon: const Icon(Icons.check_circle_outline),
+            label: Text('apply'.tr),
+          ),
+        ],
+      ),
+    );
+    if (!(confirmed ?? false)) {
+      return;
+    }
+
+    isApplyingDefaultProfile.value = true;
+    try {
+      final nextSettings = settings.value.copyWith(
+        businessName: 'غانم لعالم الإنارة',
+        defaultCurrency: 'SYP',
+        currencySymbol: 'ل.س',
+        language: AppLanguage.ar,
+        showLogoInPdf: true,
+        showFooter: true,
+      );
+      final currentShop = ShopInfo.fromMap(
+        _hiveService.shopInfoBox.get(HiveBoxes.shopInfo)
+            as Map<dynamic, dynamic>?,
+      );
+      final nextShop = currentShop.copyWith(
+        updatedAt: DateTime.now(),
+        shopName: 'غانم لعالم الإنارة',
+        phoneNumber: '0991205976',
+        address: 'خان أرنبة، مفرق الصمدانية',
+        logoPath: AppImages.defaultShopLogo,
+        coverPath: AppImages.banner,
+        currency: 'SYP',
+      );
+
+      await _hiveService.settingsBox.put(
+        HiveBoxes.settings,
+        nextSettings.toMap(),
+      );
+      await _hiveService.shopInfoBox.put(HiveBoxes.shopInfo, nextShop.toMap());
+
+      settings.value = nextSettings;
+      _savedSettings = nextSettings;
+      _syncControllers();
+      _applyRuntimeSettings();
+      hasUnsavedChanges.value = false;
+      if (Get.isRegistered<ShopController>()) {
+        Get.find<ShopController>().loadShopInfo();
+      }
+      Get.snackbar('saved'.tr, 'default_business_profile_applied'.tr);
+    } finally {
+      isApplyingDefaultProfile.value = false;
+    }
+  }
+
   void updateSettings(AppSettings Function(AppSettings current) update) {
     settings.value = update(settings.value);
+    _applyRuntimeSettings();
+    hasUnsavedChanges.value = true;
   }
 
   void _syncControllers() {
+    _syncingControllers = true;
     final current = settings.value;
     businessNameController.text = current.businessName;
     defaultCurrencyController.text = current.defaultCurrency;
@@ -289,6 +438,41 @@ class SettingsController extends GetxController {
     notesTemplateController.text = current.notesTemplate;
     paymentInstructionsController.text = current.paymentInstructions;
     fontSizeScaleController.text = '${current.fontSizeScale}';
+    _syncingControllers = false;
+  }
+
+  void applyFormDraft() {
+    if (_syncingControllers) {
+      return;
+    }
+    final current = settings.value;
+    settings.value = current.copyWith(
+      businessName: businessNameController.text.trim(),
+      defaultCurrency: defaultCurrencyController.text.trim().isEmpty
+          ? 'USD'
+          : defaultCurrencyController.text.trim(),
+      currencySymbol: currencySymbolController.text.trim().isEmpty
+          ? r'$'
+          : currencySymbolController.text.trim(),
+      decimalDigits: _int(decimalDigitsController.text, current.decimalDigits),
+      invoicePrefix: invoicePrefixController.text.trim().isEmpty
+          ? 'INV'
+          : invoicePrefixController.text.trim(),
+      startingInvoiceNumber: _int(
+        startingInvoiceNumberController.text,
+        current.startingInvoiceNumber,
+      ),
+      defaultTaxPercent: _double(defaultTaxController.text, 0),
+      defaultDiscountPercent: _double(defaultDiscountController.text, 0),
+      notesTemplate: notesTemplateController.text.trim(),
+      paymentInstructions: paymentInstructionsController.text.trim(),
+      fontSizeScale: _double(
+        fontSizeScaleController.text,
+        1,
+      ).clamp(0.8, 1.4).toDouble(),
+    );
+    _applyRuntimeSettings();
+    hasUnsavedChanges.value = true;
   }
 
   void _applyRuntimeSettings() {

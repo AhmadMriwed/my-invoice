@@ -1,10 +1,7 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/pdf/pdf_options.dart';
@@ -63,14 +60,7 @@ class PdfPreviewController extends GetxController {
       );
 
       if (path == null) {
-        final directory = await _defaultPdfDirectory();
-        path = '${directory.path}/$fileName';
-        await File(path).writeAsBytes(bytes);
-      } else {
-        final file = File(path);
-        if (!await file.exists()) {
-          await file.writeAsBytes(bytes);
-        }
+        return;
       }
       savedPdfPath.value = path;
     } finally {
@@ -153,13 +143,5 @@ class PdfPreviewController extends GetxController {
       return;
     }
     await OpenFilex.open(target);
-  }
-
-  Future<Directory> _defaultPdfDirectory() async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      return getApplicationDocumentsDirectory();
-    }
-    final downloads = await getDownloadsDirectory();
-    return downloads ?? getApplicationDocumentsDirectory();
   }
 }

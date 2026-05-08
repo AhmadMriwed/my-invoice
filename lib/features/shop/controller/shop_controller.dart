@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/constants/app_images.dart';
+import '../../../core/image_editor/image_editor_result.dart';
+import '../../../core/image_editor/image_editor_service.dart';
 import '../../../core/storage/hive_boxes.dart';
 import '../../../core/storage/hive_service.dart';
 import '../model/shop_info.dart';
@@ -16,11 +19,14 @@ class ShopController extends GetxController {
   final addressController = TextEditingController();
   final taxNumberController = TextEditingController();
   final logoPathController = TextEditingController();
+  final coverPathController = TextEditingController();
   final currencyController = TextEditingController();
   final notesController = TextEditingController();
 
   final shopInfo = ShopInfo.fromMap(null).obs;
   final isSaving = false.obs;
+  final logoPreviewPath = ''.obs;
+  final coverPreviewPath = ''.obs;
 
   @override
   void onInit() {
@@ -39,6 +45,13 @@ class ShopController extends GetxController {
     addressController.text = info.address;
     taxNumberController.text = info.taxNumber;
     logoPathController.text = info.logoPath;
+    coverPathController.text = info.coverPath;
+    logoPreviewPath.value = info.logoPath.isEmpty
+        ? AppImages.defaultShopLogo
+        : info.logoPath;
+    coverPreviewPath.value = info.coverPath.isEmpty
+        ? AppImages.banner
+        : info.coverPath;
     currencyController.text = info.currency;
     notesController.text = info.notes;
   }
@@ -61,6 +74,7 @@ class ShopController extends GetxController {
       address: addressController.text.trim(),
       taxNumber: taxNumberController.text.trim(),
       logoPath: logoPathController.text.trim(),
+      coverPath: coverPathController.text.trim(),
       currency: currencyController.text.trim().isEmpty
           ? r'$'
           : currencyController.text.trim(),
@@ -74,7 +88,39 @@ class ShopController extends GetxController {
   }
 
   void useLogoPlaceholder() {
-    logoPathController.text = 'assets/images/splash_logo.png';
+    logoPathController.text = AppImages.defaultShopLogo;
+    logoPreviewPath.value = AppImages.defaultShopLogo;
+  }
+
+  void useCoverPlaceholder() {
+    coverPathController.text = AppImages.banner;
+    coverPreviewPath.value = AppImages.banner;
+  }
+
+  Future<void> pickLogoImage(BuildContext context) async {
+    final path = await ImageEditorService.pickEditAndSave(
+      context: context,
+      folderName: 'shop_media',
+      filePrefix: 'logo',
+      initialPreset: ImageCropPreset.square,
+    );
+    if (path != null) {
+      logoPathController.text = path;
+      logoPreviewPath.value = path;
+    }
+  }
+
+  Future<void> pickCoverImage(BuildContext context) async {
+    final path = await ImageEditorService.pickEditAndSave(
+      context: context,
+      folderName: 'shop_media',
+      filePrefix: 'cover',
+      initialPreset: ImageCropPreset.ratio16x9,
+    );
+    if (path != null) {
+      coverPathController.text = path;
+      coverPreviewPath.value = path;
+    }
   }
 
   @override
@@ -86,6 +132,7 @@ class ShopController extends GetxController {
     addressController.dispose();
     taxNumberController.dispose();
     logoPathController.dispose();
+    coverPathController.dispose();
     currencyController.dispose();
     notesController.dispose();
     super.onClose();
