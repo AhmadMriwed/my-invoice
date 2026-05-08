@@ -1,6 +1,6 @@
 {
-    "name": "test_invoice",
-    "short_name": "test_invoice",
+    "name": "my_invoice",
+    "short_name": "my_invoice",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

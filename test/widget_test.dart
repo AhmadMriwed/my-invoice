@@ -3,9 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
-import 'package:test_invoice/app.dart';
-import 'package:test_invoice/core/constants/app_strings.dart';
-import 'package:test_invoice/core/storage/hive_service.dart';
+import 'package:my_invoice/app.dart';
+import 'package:my_invoice/core/storage/hive_service.dart';
 
 void main() {
   late Directory hiveTempDirectory;
@@ -20,7 +19,7 @@ void main() {
   testWidgets('shows splash screen', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
 
-    expect(find.text(AppStrings.appName), findsOneWidget);
+    expect(find.text('تطبيق الفواتير'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
     await tester.pump();
   });

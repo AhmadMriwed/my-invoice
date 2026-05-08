@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:test_invoice/core/pdf/pdf_options.dart';
-import 'package:test_invoice/features/invoice_form/widgets/invoice_pdf_builder.dart';
-import 'package:test_invoice/features/invoices/model/invoice.dart';
-import 'package:test_invoice/features/invoices/model/invoice_item.dart';
-import 'package:test_invoice/features/shop/model/shop_info.dart';
+import 'package:my_invoice/core/pdf/pdf_options.dart';
+import 'package:my_invoice/features/invoice_form/widgets/invoice_pdf_builder.dart';
+import 'package:my_invoice/features/invoices/model/invoice.dart';
+import 'package:my_invoice/features/invoices/model/invoice_item.dart';
+import 'package:my_invoice/features/shop/model/shop_info.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
