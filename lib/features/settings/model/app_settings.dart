@@ -29,7 +29,10 @@ class AppSettings {
     this.showLogoInPdf = true,
     this.showCustomerNotes = true,
     this.showFooter = true,
+    this.showSealInPdf = true,
+    this.showSignatureInPdf = false,
     this.defaultPdfTheme = InvoicePdfTheme.modern,
+    this.defaultPdfStyleId = InvoicePdfStyleIds.defaultStyleId,
     this.paperSize = PaperSizeOption.a4,
     this.fontSizeScale = 1,
     this.compactPdfMode = false,
@@ -87,11 +90,17 @@ class AppSettings {
       showLogoInPdf: map['showLogoInPdf'] as bool? ?? true,
       showCustomerNotes: map['showCustomerNotes'] as bool? ?? true,
       showFooter: map['showFooter'] as bool? ?? true,
+      showSealInPdf: map['showSealInPdf'] as bool? ?? true,
+      showSignatureInPdf: map['showSignatureInPdf'] as bool? ?? false,
       defaultPdfTheme: _enumValue(
         InvoicePdfTheme.values,
         map['defaultPdfTheme'],
         defaults.defaultPdfTheme,
       ),
+      defaultPdfStyleId:
+          map['defaultPdfStyleId']?.toString() ??
+          _legacyStyleId(map['defaultPdfTheme']) ??
+          defaults.defaultPdfStyleId,
       paperSize: _enumValue(
         PaperSizeOption.values,
         map['paperSize'],
@@ -125,7 +134,10 @@ class AppSettings {
       'showLogoInPdf': showLogoInPdf,
       'showCustomerNotes': showCustomerNotes,
       'showFooter': showFooter,
+      'showSealInPdf': showSealInPdf,
+      'showSignatureInPdf': showSignatureInPdf,
       'defaultPdfTheme': defaultPdfTheme.name,
+      'defaultPdfStyleId': defaultPdfStyleId,
       'paperSize': paperSize.name,
       'fontSizeScale': fontSizeScale,
       'compactPdfMode': compactPdfMode,
@@ -151,7 +163,10 @@ class AppSettings {
     bool? showLogoInPdf,
     bool? showCustomerNotes,
     bool? showFooter,
+    bool? showSealInPdf,
+    bool? showSignatureInPdf,
     InvoicePdfTheme? defaultPdfTheme,
+    String? defaultPdfStyleId,
     PaperSizeOption? paperSize,
     double? fontSizeScale,
     bool? compactPdfMode,
@@ -180,7 +195,10 @@ class AppSettings {
       showLogoInPdf: showLogoInPdf ?? this.showLogoInPdf,
       showCustomerNotes: showCustomerNotes ?? this.showCustomerNotes,
       showFooter: showFooter ?? this.showFooter,
+      showSealInPdf: showSealInPdf ?? this.showSealInPdf,
+      showSignatureInPdf: showSignatureInPdf ?? this.showSignatureInPdf,
       defaultPdfTheme: defaultPdfTheme ?? this.defaultPdfTheme,
+      defaultPdfStyleId: defaultPdfStyleId ?? this.defaultPdfStyleId,
       paperSize: paperSize ?? this.paperSize,
       fontSizeScale: fontSizeScale ?? this.fontSizeScale,
       compactPdfMode: compactPdfMode ?? this.compactPdfMode,
@@ -197,6 +215,16 @@ class AppSettings {
       (value) => value.name == raw?.toString(),
       orElse: () => fallback,
     );
+  }
+
+  static String? _legacyStyleId(Object? rawTheme) {
+    if (rawTheme == null) {
+      return null;
+    }
+    if (rawTheme.toString() == InvoicePdfTheme.modern.name) {
+      return InvoicePdfStyleIds.defaultStyleId;
+    }
+    return null;
   }
 
   final String id;
@@ -220,7 +248,10 @@ class AppSettings {
   final bool showLogoInPdf;
   final bool showCustomerNotes;
   final bool showFooter;
+  final bool showSealInPdf;
+  final bool showSignatureInPdf;
   final InvoicePdfTheme defaultPdfTheme;
+  final String defaultPdfStyleId;
   final PaperSizeOption paperSize;
   final double fontSizeScale;
   final bool compactPdfMode;

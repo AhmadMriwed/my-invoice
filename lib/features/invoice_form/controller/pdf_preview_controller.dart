@@ -5,13 +5,13 @@ import 'package:open_filex/open_filex.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/pdf/pdf_options.dart';
+import '../../../core/pdf/invoice_pdf_styles.dart';
 import '../../../core/storage/hive_boxes.dart';
 import '../../../core/storage/hive_service.dart';
 import '../../invoices/model/invoice.dart';
 import '../../settings/controller/settings_controller.dart';
 import '../../settings/model/app_settings.dart';
 import '../../shop/model/shop_info.dart';
-import '../widgets/invoice_pdf_builder.dart';
 
 class PdfPreviewController extends GetxController {
   final _hiveService = Get.find<HiveService>();
@@ -19,6 +19,7 @@ class PdfPreviewController extends GetxController {
   late final Invoice invoice;
   late final ShopInfo shopInfo;
   late final AppSettings appSettings;
+  final selectedStyleId = InvoicePdfStyles.defaultStyleId.obs;
   final selectedTheme = InvoicePdfTheme.modern.obs;
   final selectedPaperSize = PaperSizeOption.a4.obs;
   final isSaving = false.obs;
@@ -35,6 +36,9 @@ class PdfPreviewController extends GetxController {
           as Map<dynamic, dynamic>?,
     );
     appSettings = _settingsController.settings.value;
+    selectedStyleId.value = InvoicePdfStyles.normalize(
+      appSettings.defaultPdfStyleId,
+    );
     selectedTheme.value = appSettings.defaultPdfTheme;
     selectedPaperSize.value = appSettings.paperSize;
   }
@@ -43,9 +47,10 @@ class PdfPreviewController extends GetxController {
     isSaving.value = true;
     String? path;
     try {
-      final bytes = await InvoicePdfBuilder.build(
+      final bytes = await InvoicePdfStyles.build(
         invoice,
         shopInfo: shopInfo,
+        styleId: selectedStyleId.value,
         theme: selectedTheme.value,
         paperSize: selectedPaperSize.value,
         settings: appSettings,
@@ -102,9 +107,10 @@ class PdfPreviewController extends GetxController {
   Future<void> sharePdf() async {
     isSharing.value = true;
     try {
-      final bytes = await InvoicePdfBuilder.build(
+      final bytes = await InvoicePdfStyles.build(
         invoice,
         shopInfo: shopInfo,
+        styleId: selectedStyleId.value,
         theme: selectedTheme.value,
         paperSize: selectedPaperSize.value,
         settings: appSettings,
@@ -123,9 +129,10 @@ class PdfPreviewController extends GetxController {
     try {
       await Printing.layoutPdf(
         name: invoice.invoiceNumber,
-        onLayout: (_) => InvoicePdfBuilder.build(
+        onLayout: (_) => InvoicePdfStyles.build(
           invoice,
           shopInfo: shopInfo,
+          styleId: selectedStyleId.value,
           theme: selectedTheme.value,
           paperSize: selectedPaperSize.value,
           settings: appSettings,

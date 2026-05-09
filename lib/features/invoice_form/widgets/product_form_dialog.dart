@@ -43,76 +43,88 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.item == null ? 'add_product'.tr : 'edit_product'.tr),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppTextField(
-                  controller: nameController,
-                  label: 'product_name'.tr,
-                  validator: (value) => AppValidator.required(
-                    value,
-                    fieldName: 'product_name'.tr,
+    final textDirection = _productTextDirection(context);
+    return Directionality(
+      textDirection: textDirection,
+      child: AlertDialog(
+        title: Text(widget.item == null ? 'add_product'.tr : 'edit_product'.tr),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppTextField(
+                    controller: nameController,
+                    label: 'product_name'.tr,
+                    textDirection: textDirection,
+                    validator: (value) => AppValidator.required(
+                      value,
+                      fieldName: 'product_name'.tr,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _ProductImagePicker(
-                  path: imagePathController.text,
-                  onPick: _pickProductImage,
-                  onClear: () {
-                    imagePathController.clear();
-                    setState(() {});
-                  },
-                ),
-                const SizedBox(height: 12),
-                AppTextField(
-                  controller: quantityController,
-                  label: 'quantity'.tr,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+                  const SizedBox(height: 12),
+                  _ProductImagePicker(
+                    path: imagePathController.text,
+                    textDirection: textDirection,
+                    onPick: _pickProductImage,
+                    onClear: () {
+                      imagePathController.clear();
+                      setState(() {});
+                    },
                   ),
-                  inputFormatters: AppInputFormatters.decimal,
-                  validator: (value) => _positiveValidator(
-                    value,
-                    fieldName: 'quantity'.tr,
-                    allowZero: false,
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    controller: quantityController,
+                    label: 'quantity'.tr,
+                    textDirection: textDirection,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: AppInputFormatters.decimal,
+                    validator: (value) => _positiveValidator(
+                      value,
+                      fieldName: 'quantity'.tr,
+                      allowZero: false,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                AppTextField(
-                  controller: unitPriceController,
-                  label: 'unit_price'.tr,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    controller: unitPriceController,
+                    label: 'unit_price'.tr,
+                    textDirection: textDirection,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: AppInputFormatters.decimal,
+                    validator: (value) => _positiveValidator(
+                      value,
+                      fieldName: 'unit_price'.tr,
+                      allowZero: false,
+                    ),
                   ),
-                  inputFormatters: AppInputFormatters.decimal,
-                  validator: (value) => _positiveValidator(
-                    value,
-                    fieldName: 'unit_price'.tr,
-                    allowZero: false,
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    controller: notesController,
+                    label: 'notes'.tr,
+                    textDirection: textDirection,
                   ),
-                ),
-                const SizedBox(height: 12),
-                AppTextField(controller: notesController, label: 'notes'.tr),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+        actions: [
+          TextButton(onPressed: Get.back, child: Text('cancel'.tr)),
+          AppButton(
+            label: 'save_product'.tr,
+            isExpanded: false,
+            onPressed: _save,
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: Get.back, child: Text('cancel'.tr)),
-        AppButton(
-          label: 'save_product'.tr,
-          isExpanded: false,
-          onPressed: _save,
-        ),
-      ],
     );
   }
 
@@ -185,11 +197,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 class _ProductImagePicker extends StatelessWidget {
   const _ProductImagePicker({
     required this.path,
+    required this.textDirection,
     required this.onPick,
     required this.onClear,
   });
 
   final String path;
+  final TextDirection textDirection;
   final VoidCallback onPick;
   final VoidCallback onClear;
 
@@ -203,6 +217,7 @@ class _ProductImagePicker extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
+        textDirection: textDirection,
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
@@ -242,4 +257,15 @@ class _ProductImagePicker extends StatelessWidget {
       ),
     );
   }
+}
+
+TextDirection _productTextDirection(BuildContext context) {
+  final languageCode = Get.locale?.languageCode;
+  if (languageCode == 'ar') {
+    return TextDirection.rtl;
+  }
+  if (languageCode == 'en') {
+    return TextDirection.ltr;
+  }
+  return Directionality.of(context);
 }

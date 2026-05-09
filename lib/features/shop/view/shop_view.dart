@@ -137,21 +137,49 @@ class _MediaPickers extends StatelessWidget {
           onUseDefault: controller.useCoverPlaceholder,
         ),
       ),
+      Obx(
+        () => _ImagePickerCard(
+          title: 'shop_seal'.tr,
+          imagePath: controller.sealPreviewPath.value,
+          aspectRatio: 1,
+          onPick: () => controller.pickSealImage(context),
+          onUseDefault: controller.useSealPlaceholder,
+        ),
+      ),
+      Obx(
+        () => _ImagePickerCard(
+          title: 'shop_signature'.tr,
+          imagePath: controller.signaturePreviewPath.value,
+          aspectRatio: 2.8,
+          onPick: () => controller.pickSignatureImage(context),
+          onUseDefault: controller.useSignaturePlaceholder,
+        ),
+      ),
     ];
 
     if (!isDesktop) {
       return Column(
-        children: [children.first, const SizedBox(height: 16), children.last],
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            if (index > 0) const SizedBox(height: 16),
+            children[index],
+          ],
+        ],
       );
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: children.first),
-        const SizedBox(width: 16),
-        Expanded(child: children.last),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (constraints.maxWidth - 16) / 2;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
     );
   }
 }

@@ -27,13 +27,20 @@ class InvoiceDetailsView extends GetView<InvoicesController> {
               ? null
               : [
                   IconButton(
+                    tooltip: 'edit'.tr,
                     onPressed: () => controller.openEdit(invoice),
                     icon: const Icon(Icons.edit_outlined),
                   ),
                   IconButton(
+                    tooltip: 'export_pdf'.tr,
                     onPressed: () => controller.exportPdf(invoice),
                     icon: const Icon(Icons.picture_as_pdf_outlined),
                   ),
+                  if (ScreenUtils.isMobile(context))
+                    _InvoiceDetailsMenu(
+                      invoice: invoice,
+                      controller: controller,
+                    ),
                 ],
         ),
         body: invoice == null
@@ -41,6 +48,49 @@ class InvoiceDetailsView extends GetView<InvoicesController> {
             : _Details(invoice: invoice),
       );
     });
+  }
+}
+
+enum _InvoiceDetailsAction { duplicate, delete }
+
+class _InvoiceDetailsMenu extends StatelessWidget {
+  const _InvoiceDetailsMenu({required this.invoice, required this.controller});
+
+  final Invoice invoice;
+  final InvoicesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_InvoiceDetailsAction>(
+      tooltip: 'actions'.tr,
+      icon: const Icon(Icons.more_vert),
+      onSelected: (action) {
+        switch (action) {
+          case _InvoiceDetailsAction.duplicate:
+            controller.duplicateInvoice(invoice);
+          case _InvoiceDetailsAction.delete:
+            controller.deleteInvoice(invoice);
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _InvoiceDetailsAction.duplicate,
+          child: ListTile(
+            leading: const Icon(Icons.copy_outlined),
+            title: Text('duplicate'.tr),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: _InvoiceDetailsAction.delete,
+          child: ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: Text('delete'.tr),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -77,6 +127,11 @@ class _Details extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
+                      Text('${'invoice_type'.tr}: ${_documentType(invoice)}'),
+                      if (invoice.documentType == InvoiceDocumentType.invoice)
+                        Text(
+                          '${'payment_method'.tr}: ${_paymentMethod(invoice)}',
+                        ),
                       Text('${'customer'.tr}: ${invoice.customerName}'),
                       Text(
                         '${'date'.tr}: ${DateTimeUtils.formatDate(invoice.date)}',
@@ -166,4 +221,20 @@ class _TotalLine extends StatelessWidget {
       ),
     );
   }
+}
+
+String _documentType(Invoice invoice) {
+  if (invoice.documentType == InvoiceDocumentType.custom) {
+    final value = invoice.customDocumentType.trim();
+    return value.isEmpty ? 'custom'.tr : value;
+  }
+  return invoice.documentType.name.tr;
+}
+
+String _paymentMethod(Invoice invoice) {
+  if (invoice.paymentMethod == InvoicePaymentMethod.custom) {
+    final value = invoice.customPaymentMethod.trim();
+    return value.isEmpty ? 'custom'.tr : value;
+  }
+  return invoice.paymentMethod.name.tr;
 }

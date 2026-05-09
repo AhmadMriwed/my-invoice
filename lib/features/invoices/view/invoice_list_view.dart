@@ -636,29 +636,147 @@ class _InvoiceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      hoverable: true,
-      padding: EdgeInsets.zero,
-      child: ListTile(
-        onTap: () => controller.openDetails(invoice),
-        title: Text(invoice.invoiceNumber),
-        subtitle: Text(
-          '${invoice.customerName}\n${DateTimeUtils.formatDate(invoice.date)}',
-        ),
-        isThreeLine: true,
-        trailing: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              CurrencyUtils.format(
-                invoice.finalTotal,
-                symbol: invoice.currencySymbol,
-              ),
+      onTap: () => controller.openDetails(invoice),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  invoice.invoiceNumber,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  invoice.customerName,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  DateTimeUtils.formatDate(invoice.date),
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-            InvoiceStatusChip(status: invoice.status),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        CurrencyUtils.format(
+                          invoice.finalTotal,
+                          symbol: invoice.currencySymbol,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    _InvoiceOverflowMenu(
+                      invoice: invoice,
+                      controller: controller,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: InvoiceStatusChip(status: invoice.status),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+enum _InvoiceAction { view, edit, duplicate, exportPdf, delete }
+
+class _InvoiceOverflowMenu extends StatelessWidget {
+  const _InvoiceOverflowMenu({required this.invoice, required this.controller});
+
+  final Invoice invoice;
+  final InvoicesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_InvoiceAction>(
+      tooltip: 'actions'.tr,
+      icon: const Icon(Icons.more_vert),
+      onSelected: (action) {
+        switch (action) {
+          case _InvoiceAction.view:
+            controller.openDetails(invoice);
+          case _InvoiceAction.edit:
+            controller.openEdit(invoice);
+          case _InvoiceAction.duplicate:
+            controller.duplicateInvoice(invoice);
+          case _InvoiceAction.exportPdf:
+            controller.exportPdf(invoice);
+          case _InvoiceAction.delete:
+            controller.deleteInvoice(invoice);
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _InvoiceAction.view,
+          child: ListTile(
+            leading: const Icon(Icons.visibility_outlined),
+            title: Text('view'.tr),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: _InvoiceAction.edit,
+          child: ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: Text('edit'.tr),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: _InvoiceAction.duplicate,
+          child: ListTile(
+            leading: const Icon(Icons.copy_outlined),
+            title: Text('duplicate'.tr),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: _InvoiceAction.exportPdf,
+          child: ListTile(
+            leading: const Icon(Icons.picture_as_pdf_outlined),
+            title: Text('export_pdf'.tr),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: _InvoiceAction.delete,
+          child: ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: Text('delete'.tr),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
     );
   }
 }

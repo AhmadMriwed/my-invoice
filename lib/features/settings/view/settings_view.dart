@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/pdf/pdf_options.dart';
+import '../../../core/pdf/invoice_pdf_styles.dart';
 import '../../../core/utils/app_input_formatters.dart';
 import '../../../core/utils/screen_utils.dart';
 import '../../../core/widgets/app_action_button.dart';
@@ -223,6 +224,15 @@ class SettingsView extends GetView<SettingsController> {
                         children: [
                           _ResponsiveGrid(
                             children: [
+                              _PdfStyleDropdown(
+                                value:
+                                    controller.settings.value.defaultPdfStyleId,
+                                onChanged: (value) => controller.updateSettings(
+                                  (current) => current.copyWith(
+                                    defaultPdfStyleId: value,
+                                  ),
+                                ),
+                              ),
                               _EnumDropdown<InvoicePdfTheme>(
                                 label: 'default_pdf_theme'.tr,
                                 value:
@@ -258,6 +268,26 @@ class SettingsView extends GetView<SettingsController> {
                                 onChanged: (value) => controller.updateSettings(
                                   (current) =>
                                       current.copyWith(compactPdfMode: value),
+                                ),
+                              ),
+                              _SwitchTile(
+                                title: 'show_seal_pdf'.tr,
+                                value: controller.settings.value.showSealInPdf,
+                                onChanged: (value) => controller.updateSettings(
+                                  (current) =>
+                                      current.copyWith(showSealInPdf: value),
+                                ),
+                              ),
+                              _SwitchTile(
+                                title: 'show_signature_pdf'.tr,
+                                value: controller
+                                    .settings
+                                    .value
+                                    .showSignatureInPdf,
+                                onChanged: (value) => controller.updateSettings(
+                                  (current) => current.copyWith(
+                                    showSignatureInPdf: value,
+                                  ),
                                 ),
                               ),
                             ],
@@ -424,6 +454,35 @@ class _EnumDropdown<T extends Enum> extends StatelessWidget {
       items: values
           .map(
             (item) => DropdownMenuItem(value: item, child: Text(item.name.tr)),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value != null) {
+          onChanged(value);
+        }
+      },
+    );
+  }
+}
+
+class _PdfStyleDropdown extends StatelessWidget {
+  const _PdfStyleDropdown({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      key: ValueKey(value),
+      initialValue: InvoicePdfStyles.normalize(value),
+      decoration: InputDecoration(labelText: 'default_pdf_style'.tr),
+      items: InvoicePdfStyles.options
+          .map(
+            (style) => DropdownMenuItem(
+              value: style.id,
+              child: Text(InvoicePdfStyles.displayName(style)),
+            ),
           )
           .toList(),
       onChanged: (value) {

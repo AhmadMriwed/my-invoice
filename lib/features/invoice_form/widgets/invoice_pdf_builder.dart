@@ -22,12 +22,14 @@ class InvoicePdfBuilder {
     InvoicePdfTheme theme = InvoicePdfTheme.modern,
     PaperSizeOption paperSize = PaperSizeOption.a4,
     AppSettings? settings,
+    String? headerBannerAsset,
   }) async {
     final pdf = pw.Document();
     final shop = shopInfo ?? ShopInfo.fromMap(null);
     final appSettings = settings ?? AppSettings.defaults();
     final colors = _PdfThemeColors.fromTheme(theme);
     final labels = _PdfLabels(appSettings.language);
+    final documentTitle = labels.documentTitle(invoice);
     final shopName = shop.shopName.isEmpty ? labels.appName : shop.shopName;
     final shopInitial = shopName.substring(0, 1).toUpperCase();
     final arabicFont = await PdfFontLoader.arabicFont();
@@ -49,6 +51,20 @@ class InvoicePdfBuilder {
         appSettings.compactPdfMode || paperSize == PaperSizeOption.thermal;
     final scale = appSettings.fontSizeScale;
     final logoImage = await _loadLogoImage(shop.logoPath);
+    final sealImage = await _loadShopImage(
+      shop.sealPath,
+      AppImages.defaultSeal,
+    );
+    final signatureImage = await _loadShopImage(
+      shop.signaturePath,
+      AppImages.defaultSignature,
+    );
+    final headerBannerImage = headerBannerAsset == null
+        ? null
+        : await _loadImageProvider(headerBannerAsset);
+    final canShowInvoiceMarks =
+        invoice.documentType == InvoiceDocumentType.invoice &&
+        (appSettings.showSealInPdf || appSettings.showSignatureInPdf);
 
     pdf.addPage(
       pw.MultiPage(
@@ -62,105 +78,35 @@ class InvoicePdfBuilder {
             fontFallback: [arabicFont],
           ),
         ),
-        footer: appSettings.showFooter
-            ? (context) => _footer(context, colors, labels)
+        footer: appSettings.showFooter || canShowInvoiceMarks
+            ? (context) => _footer(
+                context,
+                colors,
+                labels,
+                showFooterText: appSettings.showFooter,
+                showInvoiceMarks: canShowInvoiceMarks,
+                showSeal: appSettings.showSealInPdf,
+                showSignature: appSettings.showSignatureInPdf,
+                sealImage: sealImage,
+                signatureImage: signatureImage,
+                compact: compact,
+              )
             : null,
         build: (context) => [
-          pw.Container(
-            padding: pw.EdgeInsets.all(compact ? 12 : 22),
-            decoration: pw.BoxDecoration(
-              color: colors.headerBackground,
-              borderRadius: pw.BorderRadius.circular(compact ? 8 : 14),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    if (appSettings.showLogoInPdf)
-                      pw.Container(
-                        width: compact ? 34 : 50,
-                        height: compact ? 34 : 50,
-                        alignment: pw.Alignment.center,
-                        decoration: pw.BoxDecoration(
-                          color: colors.accent,
-                          borderRadius: pw.BorderRadius.circular(13),
-                        ),
-                        child: logoImage == null
-                            ? pw.Text(
-                                shopInitial,
-                                style: pw.TextStyle(
-                                  color: PdfColors.white,
-                                  fontSize: 22,
-                                  fontWeight: pw.FontWeight.bold,
-                                ),
-                              )
-                            : pw.ClipRRect(
-                                horizontalRadius: 13,
-                                verticalRadius: 13,
-                                child: pw.Image(
-                                  logoImage,
-                                  fit: pw.BoxFit.cover,
-                                  width: compact ? 34 : 50,
-                                  height: compact ? 34 : 50,
-                                ),
-                              ),
-                      ),
-                    if (appSettings.showLogoInPdf) pw.SizedBox(width: 14),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          shopName,
-                          style: pw.TextStyle(
-                            color: colors.headerText,
-                            fontSize: (compact ? 16 : 24) * scale,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.SizedBox(height: 5),
-                        _headerLine(shop.phoneNumber, colors),
-                        _headerLine(shop.email, colors),
-                        _headerLine(shop.address, colors),
-                        if (shop.taxNumber.isNotEmpty)
-                          _headerLine(labels.taxNumber(shop.taxNumber), colors),
-                      ],
-                    ),
-                  ],
-                ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      paperSize == PaperSizeOption.thermal
-                          ? labels.receipt.toUpperCase()
-                          : labels.invoice.toUpperCase(),
-                      style: pw.TextStyle(
-                        color: colors.headerMuted,
-                        fontSize: (compact ? 9 : 12) * scale,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      invoice.invoiceNumber,
-                      style: pw.TextStyle(
-                        color: colors.headerText,
-                        fontSize: (compact ? 12 : 18) * scale,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      DateTimeUtils.formatDate(invoice.date),
-                      style: pw.TextStyle(color: colors.headerMuted),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          _header(
+            shop: shop,
+            shopName: shopName,
+            shopInitial: shopInitial,
+            invoice: invoice,
+            logoImage: logoImage,
+            bannerImage: headerBannerImage,
+            colors: colors,
+            labels: labels,
+            documentTitle: documentTitle,
+            appSettings: appSettings,
+            paperSize: paperSize,
+            compact: compact,
+            scale: scale,
           ),
           pw.SizedBox(height: compact ? 14 : 30),
           pw.Row(
@@ -168,7 +114,7 @@ class InvoicePdfBuilder {
             children: [
               pw.Expanded(
                 child: _partyBlock(
-                  title: labels.billTo,
+                  title: labels.billTo(invoice),
                   lines: [invoice.customerName],
                   colors: colors,
                 ),
@@ -176,11 +122,12 @@ class InvoicePdfBuilder {
               pw.SizedBox(width: 18),
               pw.Expanded(
                 child: _partyBlock(
-                  title: labels.invoiceDetails,
+                  title: labels.documentDetails(invoice),
                   lines: [
                     '${labels.number}: ${invoice.invoiceNumber}',
                     '${labels.date}: ${DateTimeUtils.formatDate(invoice.date)}',
-                    '${labels.status}: ${labels.statusValue(invoice.status)}',
+                    if (invoice.documentType == InvoiceDocumentType.invoice)
+                      '${labels.paymentMethod}: ${labels.paymentMethodValue(invoice)}',
                   ],
                   colors: colors,
                 ),
@@ -191,26 +138,36 @@ class InvoicePdfBuilder {
 
           pw.TableHelper.fromTextArray(
             // headerAlignment: pw.AlignmentDirectional.centerEnd,
-            headers: [
-              labels.product,
-              labels.qty,
-              labels.unitPrice,
-              labels.total,
-            ],
+            headers: isRtl
+                ? [labels.total, labels.unitPrice, labels.qty, labels.product]
+                : [labels.product, labels.qty, labels.unitPrice, labels.total],
             data: invoice.items
                 .map(
-                  (item) => [
-                    item.name,
-                    item.safeQuantity.toStringAsFixed(2),
-                    CurrencyUtils.format(
-                      item.safeUnitPrice,
-                      symbol: invoice.currencySymbol,
-                    ),
-                    CurrencyUtils.format(
-                      item.total,
-                      symbol: invoice.currencySymbol,
-                    ),
-                  ],
+                  (item) => isRtl
+                      ? [
+                          CurrencyUtils.format(
+                            item.total,
+                            symbol: invoice.currencySymbol,
+                          ),
+                          CurrencyUtils.format(
+                            item.safeUnitPrice,
+                            symbol: invoice.currencySymbol,
+                          ),
+                          item.safeQuantity.toStringAsFixed(2),
+                          item.name,
+                        ]
+                      : [
+                          item.name,
+                          item.safeQuantity.toStringAsFixed(2),
+                          CurrencyUtils.format(
+                            item.safeUnitPrice,
+                            symbol: invoice.currencySymbol,
+                          ),
+                          CurrencyUtils.format(
+                            item.total,
+                            symbol: invoice.currencySymbol,
+                          ),
+                        ],
                 )
                 .toList(),
             headerStyle: pw.TextStyle(
@@ -312,10 +269,172 @@ class InvoicePdfBuilder {
     return pw.Text(value, style: pw.TextStyle(color: colors.headerMuted));
   }
 
+  static pw.Widget _header({
+    required ShopInfo shop,
+    required String shopName,
+    required String shopInitial,
+    required Invoice invoice,
+    required pw.ImageProvider? logoImage,
+    required pw.ImageProvider? bannerImage,
+    required _PdfThemeColors colors,
+    required _PdfLabels labels,
+    required String documentTitle,
+    required AppSettings appSettings,
+    required PaperSizeOption paperSize,
+    required bool compact,
+    required double scale,
+  }) {
+    final headerContent = pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            if (appSettings.showLogoInPdf)
+              pw.Container(
+                width: compact ? 34 : 50,
+                height: compact ? 34 : 50,
+                alignment: pw.Alignment.center,
+                decoration: pw.BoxDecoration(
+                  color: colors.accent,
+                  borderRadius: pw.BorderRadius.circular(13),
+                ),
+                child: logoImage == null
+                    ? pw.Text(
+                        shopInitial,
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 22,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      )
+                    : pw.ClipRRect(
+                        horizontalRadius: 13,
+                        verticalRadius: 13,
+                        child: pw.Image(
+                          logoImage,
+                          fit: pw.BoxFit.cover,
+                          width: compact ? 34 : 50,
+                          height: compact ? 34 : 50,
+                        ),
+                      ),
+              ),
+            if (appSettings.showLogoInPdf) pw.SizedBox(width: 14),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  shopName,
+                  style: pw.TextStyle(
+                    color: bannerImage == null
+                        ? colors.headerText
+                        : colors.bodyText,
+                    fontSize: (compact ? 16 : 24) * scale,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 5),
+                _headerLine(
+                  shop.phoneNumber,
+                  bannerImage == null ? colors : colors.forLightHeader(),
+                ),
+                _headerLine(
+                  shop.email,
+                  bannerImage == null ? colors : colors.forLightHeader(),
+                ),
+                _headerLine(
+                  shop.address,
+                  bannerImage == null ? colors : colors.forLightHeader(),
+                ),
+                if (shop.taxNumber.isNotEmpty)
+                  _headerLine(
+                    labels.taxNumber(shop.taxNumber),
+                    bannerImage == null ? colors : colors.forLightHeader(),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
+          children: [
+            pw.Text(
+              documentTitle.toUpperCase(),
+              style: pw.TextStyle(
+                color: bannerImage == null ? colors.headerMuted : colors.accent,
+                fontSize: (compact ? 9 : 12) * scale,
+                letterSpacing: 2,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              invoice.invoiceNumber,
+              style: pw.TextStyle(
+                color: bannerImage == null
+                    ? colors.headerText
+                    : colors.bodyText,
+                fontSize: (compact ? 12 : 18) * scale,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              DateTimeUtils.formatDate(invoice.date),
+              style: pw.TextStyle(
+                color: bannerImage == null
+                    ? colors.headerMuted
+                    : colors.mutedText,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    if (bannerImage == null) {
+      return pw.Container(
+        padding: pw.EdgeInsets.all(compact ? 12 : 22),
+        decoration: pw.BoxDecoration(
+          color: colors.headerBackground,
+          borderRadius: pw.BorderRadius.circular(compact ? 8 : 14),
+        ),
+        child: headerContent,
+      );
+    }
+
+    return pw.Container(
+      height: paperSize == PaperSizeOption.thermal ? 98 : 250,
+      decoration: pw.BoxDecoration(
+        borderRadius: pw.BorderRadius.circular(compact ? 8 : 14),
+      ),
+      child: pw.ClipRRect(
+        horizontalRadius: compact ? 8 : 14,
+        verticalRadius: compact ? 8 : 14,
+        child: pw.Image(bannerImage, fit: pw.BoxFit.cover),
+      ),
+    );
+  }
+
   static Future<pw.ImageProvider?> _loadLogoImage(String logoPath) async {
     final path = logoPath.trim().isEmpty
         ? AppImages.defaultShopLogo
         : logoPath.trim();
+    return _loadImageProvider(path, fallbackAsset: AppImages.defaultShopLogo);
+  }
+
+  static Future<pw.ImageProvider?> _loadShopImage(
+    String imagePath,
+    String defaultAsset,
+  ) {
+    final path = imagePath.trim().isEmpty ? defaultAsset : imagePath.trim();
+    return _loadImageProvider(path, fallbackAsset: defaultAsset);
+  }
+
+  static Future<pw.ImageProvider?> _loadImageProvider(
+    String path, {
+    String? fallbackAsset,
+  }) async {
     if (!path.startsWith('assets/')) {
       try {
         final file = File(path);
@@ -332,11 +451,11 @@ class InvoicePdfBuilder {
       final data = await rootBundle.load(path);
       return pw.MemoryImage(data.buffer.asUint8List());
     } catch (_) {
-      if (path == AppImages.defaultShopLogo) {
+      if (fallbackAsset == null || path == fallbackAsset) {
         return null;
       }
       try {
-        final data = await rootBundle.load(AppImages.defaultShopLogo);
+        final data = await rootBundle.load(fallbackAsset);
         return pw.MemoryImage(data.buffer.asUint8List());
       } catch (_) {
         return null;
@@ -403,26 +522,95 @@ class InvoicePdfBuilder {
   static pw.Widget _footer(
     pw.Context context,
     _PdfThemeColors colors,
-    _PdfLabels labels,
-  ) {
+    _PdfLabels labels, {
+    required bool showFooterText,
+    required bool showInvoiceMarks,
+    required bool showSeal,
+    required bool showSignature,
+    required pw.ImageProvider? sealImage,
+    required pw.ImageProvider? signatureImage,
+    required bool compact,
+  }) {
+    final isLastPage = context.pageNumber == context.pagesCount;
+    final marks = showInvoiceMarks && isLastPage
+        ? _invoiceMarks(
+            showSeal: showSeal,
+            showSignature: showSignature,
+            sealImage: sealImage,
+            signatureImage: signatureImage,
+            compact: compact,
+          )
+        : null;
+
     return pw.Container(
       padding: const pw.EdgeInsets.only(top: 16),
       decoration: pw.BoxDecoration(
         border: pw.Border(top: pw.BorderSide(color: colors.divider)),
       ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          pw.Text(
-            labels.thankYou,
-            style: pw.TextStyle(color: colors.mutedText, fontSize: 10),
-          ),
-          pw.Text(
-            labels.pageOf(context.pageNumber, context.pagesCount),
-            style: pw.TextStyle(color: colors.mutedText, fontSize: 10),
-          ),
+          if (marks != null) ...[
+            pw.Align(alignment: pw.Alignment.centerLeft, child: marks),
+            pw.SizedBox(height: 8),
+          ],
+          if (showFooterText)
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  labels.thankYou,
+                  style: pw.TextStyle(color: colors.mutedText, fontSize: 10),
+                ),
+                pw.Text(
+                  labels.pageOf(context.pageNumber, context.pagesCount),
+                  style: pw.TextStyle(color: colors.mutedText, fontSize: 10),
+                ),
+              ],
+            ),
         ],
       ),
+    );
+  }
+
+  static pw.Widget? _invoiceMarks({
+    required bool showSeal,
+    required bool showSignature,
+    required pw.ImageProvider? sealImage,
+    required pw.ImageProvider? signatureImage,
+    required bool compact,
+  }) {
+    final children = <pw.Widget>[];
+    if (showSeal && sealImage != null) {
+      children.add(
+        pw.Image(
+          sealImage,
+          width: compact ? 48 : 76,
+          height: compact ? 48 : 76,
+          fit: pw.BoxFit.contain,
+        ),
+      );
+    }
+    if (showSignature && signatureImage != null) {
+      if (children.isNotEmpty) {
+        children.add(pw.SizedBox(height: 3));
+      }
+      children.add(
+        pw.Image(
+          signatureImage,
+          width: compact ? 70 : 118,
+          height: compact ? 28 : 46,
+          fit: pw.BoxFit.contain,
+        ),
+      );
+    }
+    if (children.isEmpty) {
+      return null;
+    }
+    return pw.Column(
+      mainAxisSize: pw.MainAxisSize.min,
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: children,
     );
   }
 
@@ -484,6 +672,20 @@ class _PdfThemeColors {
     };
   }
 
+  _PdfThemeColors forLightHeader() {
+    return _PdfThemeColors(
+      accent: accent,
+      headerBackground: headerBackground,
+      headerText: bodyText,
+      headerMuted: mutedText,
+      bodyText: bodyText,
+      mutedText: mutedText,
+      divider: divider,
+      tableHeader: tableHeader,
+      totalBackground: totalBackground,
+    );
+  }
+
   final PdfColor accent;
   final PdfColor headerBackground;
   final PdfColor headerText;
@@ -504,8 +706,13 @@ class _PdfLabels {
 
   String get appName => _ar ? 'تطبيق الفواتير' : 'Invoice App';
   String get invoice => _ar ? 'فاتورة' : 'Invoice';
+  String get quote => _ar ? 'عرض سعر' : 'Quotation';
   String get receipt => _ar ? 'إيصال' : 'Receipt';
-  String get billTo => _ar ? 'فاتورة إلى' : 'Bill To';
+  String billTo(Invoice invoice) {
+    final title = documentTitle(invoice);
+    return _ar ? '$title إلى' : '$title To';
+  }
+
   String get invoiceDetails => _ar ? 'تفاصيل الفاتورة' : 'Invoice Details';
   String get number => _ar ? 'الرقم' : 'Number';
   String get date => _ar ? 'التاريخ' : 'Date';
@@ -520,6 +727,7 @@ class _PdfLabels {
   String get finalTotal => _ar ? 'الإجمالي النهائي' : 'Final total';
   String get notes => _ar ? 'ملاحظات' : 'Notes';
   String get payment => _ar ? 'الدفع' : 'Payment';
+  String get paymentMethod => _ar ? 'طريقة الدفع' : 'Payment method';
   String get thankYou =>
       _ar ? 'شكراً لتعاملكم معنا.' : 'Thank you for your business.';
 
@@ -528,6 +736,37 @@ class _PdfLabels {
 
   String pageOf(int page, int pages) =>
       _ar ? 'صفحة $page من $pages' : 'Page $page of $pages';
+
+  String documentTitle(Invoice invoice) {
+    return switch (invoice.documentType) {
+      InvoiceDocumentType.invoice => this.invoice,
+      InvoiceDocumentType.quote => quote,
+      InvoiceDocumentType.custom =>
+        invoice.customDocumentType.trim().isEmpty
+            ? this.invoice
+            : invoice.customDocumentType.trim(),
+    };
+  }
+
+  String documentDetails(Invoice invoice) {
+    return switch (invoice.documentType) {
+      InvoiceDocumentType.invoice => invoiceDetails,
+      InvoiceDocumentType.quote =>
+        _ar ? 'تفاصيل عرض السعر' : 'Quotation Details',
+      InvoiceDocumentType.custom => _ar ? 'تفاصيل المستند' : 'Document Details',
+    };
+  }
+
+  String paymentMethodValue(Invoice invoice) {
+    if (invoice.paymentMethod == InvoicePaymentMethod.custom) {
+      return invoice.customPaymentMethod.trim();
+    }
+    return switch (invoice.paymentMethod) {
+      InvoicePaymentMethod.cash => _ar ? 'نقداً' : 'Cash',
+      InvoicePaymentMethod.credit => _ar ? 'آجل' : 'Credit',
+      InvoicePaymentMethod.custom => invoice.customPaymentMethod.trim(),
+    };
+  }
 
   String statusValue(InvoiceStatus status) {
     if (!_ar) {

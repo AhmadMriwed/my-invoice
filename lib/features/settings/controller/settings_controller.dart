@@ -383,6 +383,8 @@ class SettingsController extends GetxController {
         language: AppLanguage.ar,
         showLogoInPdf: true,
         showFooter: true,
+        showSealInPdf: true,
+        showSignatureInPdf: false,
       );
       final currentShop = ShopInfo.fromMap(
         _hiveService.shopInfoBox.get(HiveBoxes.shopInfo)
@@ -395,6 +397,8 @@ class SettingsController extends GetxController {
         address: 'خان أرنبة، مفرق الصمدانية',
         logoPath: AppImages.defaultShopLogo,
         coverPath: AppImages.banner,
+        sealPath: AppImages.defaultSeal,
+        signaturePath: AppImages.defaultSignature,
         currency: 'SYP',
       );
 

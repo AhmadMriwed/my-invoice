@@ -11,6 +11,8 @@ class ShopInfo {
     this.taxNumber = '',
     this.logoPath = '',
     this.coverPath = '',
+    this.sealPath = '',
+    this.signaturePath = '',
     this.currency = r'$',
     this.notes = '',
   });
@@ -33,6 +35,8 @@ class ShopInfo {
       taxNumber: map['taxNumber']?.toString() ?? '',
       logoPath: map['logoPath']?.toString() ?? '',
       coverPath: map['coverPath']?.toString() ?? '',
+      sealPath: map['sealPath']?.toString() ?? '',
+      signaturePath: map['signaturePath']?.toString() ?? '',
       currency: map['currency']?.toString() ?? r'$',
       notes: map['notes']?.toString() ?? '',
     );
@@ -51,6 +55,8 @@ class ShopInfo {
       'taxNumber': taxNumber,
       'logoPath': logoPath,
       'coverPath': coverPath,
+      'sealPath': sealPath,
+      'signaturePath': signaturePath,
       'currency': currency,
       'notes': notes,
     };
@@ -68,6 +74,8 @@ class ShopInfo {
     String? taxNumber,
     String? logoPath,
     String? coverPath,
+    String? sealPath,
+    String? signaturePath,
     String? currency,
     String? notes,
   }) {
@@ -83,6 +91,8 @@ class ShopInfo {
       taxNumber: taxNumber ?? this.taxNumber,
       logoPath: logoPath ?? this.logoPath,
       coverPath: coverPath ?? this.coverPath,
+      sealPath: sealPath ?? this.sealPath,
+      signaturePath: signaturePath ?? this.signaturePath,
       currency: currency ?? this.currency,
       notes: notes ?? this.notes,
     );
@@ -99,6 +109,8 @@ class ShopInfo {
   final String taxNumber;
   final String logoPath;
   final String coverPath;
+  final String sealPath;
+  final String signaturePath;
   final String currency;
   final String notes;
 }

@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import 'package:printing/printing.dart';
 
 import '../../../core/pdf/pdf_options.dart';
+import '../../../core/pdf/invoice_pdf_styles.dart';
 import '../controller/pdf_preview_controller.dart';
-import '../widgets/invoice_pdf_builder.dart';
 
 class PdfPreviewView extends GetView<PdfPreviewController> {
   const PdfPreviewView({super.key});
@@ -79,6 +79,33 @@ class PdfPreviewView extends GetView<PdfPreviewController> {
               child: Obx(
                 () => Row(
                   children: [
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey(controller.selectedStyleId.value),
+                        initialValue: controller.selectedStyleId.value,
+                        decoration: InputDecoration(
+                          labelText: 'pdf_style'.tr,
+                          prefixIcon: const Icon(Icons.article_outlined),
+                        ),
+                        items: InvoicePdfStyles.options
+                            .map(
+                              (style) => DropdownMenuItem(
+                                value: style.id,
+                                child: Text(
+                                  InvoicePdfStyles.displayName(style),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            controller.selectedStyleId.value = value;
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     SegmentedButton<InvoicePdfTheme>(
                       segments: [
                         ButtonSegment(
@@ -127,12 +154,15 @@ class PdfPreviewView extends GetView<PdfPreviewController> {
           Expanded(
             child: Obx(
               () => PdfPreview(
-                key: ValueKey(controller.selectedTheme.value),
+                key: ValueKey(
+                  '${controller.selectedStyleId.value}-${controller.selectedTheme.value.name}-${controller.selectedPaperSize.value.name}',
+                ),
                 canChangeOrientation: false,
                 canChangePageFormat: false,
-                build: (_) => InvoicePdfBuilder.build(
+                build: (_) => InvoicePdfStyles.build(
                   controller.invoice,
                   shopInfo: controller.shopInfo,
+                  styleId: controller.selectedStyleId.value,
                   theme: controller.selectedTheme.value,
                   paperSize: controller.selectedPaperSize.value,
                   settings: controller.appSettings,

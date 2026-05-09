@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:my_invoice/core/pdf/invoice_pdf_styles.dart';
 import 'package:my_invoice/core/pdf/pdf_options.dart';
 import 'package:my_invoice/features/invoice_form/widgets/invoice_pdf_builder.dart';
 import 'package:my_invoice/features/invoices/model/invoice.dart';
@@ -46,7 +47,7 @@ void main() {
   });
 
   test(
-    'pdf generation works for every theme with empty optional fields',
+    'pdf generation works for every registered style with empty optional fields',
     () async {
       final now = DateTime(2026);
       final invoice = Invoice(
@@ -68,11 +69,11 @@ void main() {
         ],
       );
 
-      for (final theme in InvoicePdfTheme.values) {
-        final bytes = await InvoicePdfBuilder.build(
+      for (final style in InvoicePdfStyles.options) {
+        final bytes = await InvoicePdfStyles.build(
           invoice,
           shopInfo: ShopInfo.fromMap(null),
-          theme: theme,
+          styleId: style.id,
         );
 
         expect(bytes, isNotEmpty);

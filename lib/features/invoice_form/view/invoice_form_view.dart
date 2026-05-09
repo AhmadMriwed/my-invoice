@@ -18,6 +18,7 @@ import '../../../core/widgets/app_section_title.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/currency_selector.dart';
 import '../../customers/model/customer.dart';
+import '../../invoices/model/invoice.dart';
 import '../../invoices/model/invoice_item.dart';
 import '../controller/invoice_form_controller.dart';
 import '../widgets/product_form_dialog.dart';
@@ -80,7 +81,6 @@ class InvoiceFormView extends GetView<InvoiceFormController> {
             return content;
           }
 
-
           return Stack(
             children: [
               content,
@@ -120,6 +120,8 @@ class _InvoiceDocument extends StatelessWidget {
           ),
           right: Column(
             children: [
+              _DocumentTypeSection(controller: controller),
+              const SizedBox(height: 16),
               _DateSection(controller: controller),
               const SizedBox(height: 16),
               _CurrencySection(controller: controller),
@@ -135,8 +137,7 @@ class _InvoiceDocument extends StatelessWidget {
         const SizedBox(height: 16),
         _ProductsSection(controller: controller),
         const SizedBox(height: 20),
-        if(!isDesktop)
-        _MobileTotalsBar(controller: controller),
+        if (!isDesktop) _MobileTotalsBar(controller: controller),
         const SizedBox(height: 20),
         Obx(
           () => AppButton(
@@ -445,21 +446,25 @@ class _ProductTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DataTable(
-      headingRowHeight: 48,
-      dataRowMinHeight: 68,
-      dataRowMaxHeight: 78,
-      columns: [
-        DataColumn(label: Text('image'.tr)),
-        DataColumn(label: Text('product'.tr)),
-        DataColumn(label: Text('quantity'.tr)),
-        DataColumn(label: Text('unit_price'.tr)),
-        DataColumn(label: Text('total'.tr)),
-        DataColumn(label: Text('actions'.tr)),
-      ],
-      rows: controller.items.map((item) {
-        return DataRow(
-          cells: [
+    final textDirection = _invoiceTextDirection(context);
+    final isRtl = textDirection == TextDirection.rtl;
+    final columns = <DataColumn>[
+      DataColumn(label: Text('image'.tr)),
+      DataColumn(label: Text('product'.tr)),
+      DataColumn(label: Text('quantity'.tr)),
+      DataColumn(label: Text('unit_price'.tr)),
+      DataColumn(label: Text('total'.tr)),
+      DataColumn(label: Text('actions'.tr)),
+    ];
+    return Directionality(
+      textDirection: textDirection,
+      child: DataTable(
+        headingRowHeight: 48,
+        dataRowMinHeight: 68,
+        dataRowMaxHeight: 78,
+        columns: isRtl ? columns.reversed.toList() : columns,
+        rows: controller.items.map((item) {
+          final cells = <DataCell>[
             DataCell(
               _ProductImagePlaceholder(
                 name: item.name,
@@ -471,10 +476,11 @@ class _ProductTable extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.name),
+                  Text(item.name, textAlign: TextAlign.start),
                   if (item.notes.isNotEmpty)
                     Text(
                       item.notes,
+                      textAlign: TextAlign.start,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                 ],
@@ -482,6 +488,7 @@ class _ProductTable extends StatelessWidget {
             ),
             DataCell(
               Row(
+                textDirection: textDirection,
                 children: [
                   IconButton(
                     onPressed: () => controller.decreaseQuantity(item),
@@ -493,6 +500,7 @@ class _ProductTable extends StatelessWidget {
                       key: ValueKey('quantity-${item.id}-${item.safeQuantity}'),
                       initialValue: item.safeQuantity.toStringAsFixed(2),
                       textAlign: TextAlign.center,
+                      textDirection: textDirection,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
@@ -523,9 +531,10 @@ class _ProductTable extends StatelessWidget {
               ),
             ),
             DataCell(_ProductActions(item: item, controller: controller)),
-          ],
-        );
-      }).toList(),
+          ];
+          return DataRow(cells: isRtl ? cells.reversed.toList() : cells);
+        }).toList(),
+      ),
     );
   }
 }
@@ -538,41 +547,54 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      hoverable: true,
-      child: Row(
-        children: [
-          _ProductImagePlaceholder(name: item.name, imagePath: item.imagePath),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final textDirection = _invoiceTextDirection(context);
+    return Directionality(
+      textDirection: textDirection,
+      child: AppCard(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        hoverable: true,
+        child: Row(
+          textDirection: textDirection,
+          children: [
+            _ProductImagePlaceholder(
+              name: item.name,
+              imagePath: item.imagePath,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    textAlign: TextAlign.start,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${item.safeQuantity} x ${controller.formatCurrency(item.safeUnitPrice)}',
+                    textAlign: TextAlign.start,
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(item.name, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 4),
-                Text(
-                  '${item.safeQuantity} x ${controller.formatCurrency(item.safeUnitPrice)}',
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: Text(
+                    controller.formatCurrency(item.total),
+                    key: ValueKey(item.total),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                 ),
+                _ProductActions(item: item, controller: controller),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: Text(
-                  controller.formatCurrency(item.total),
-                  key: ValueKey(item.total),
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              _ProductActions(item: item, controller: controller),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -587,6 +609,7 @@ class _ProductActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
+      textDirection: _invoiceTextDirection(context),
       children: [
         IconButton(
           tooltip: 'edit_product'.tr,
@@ -606,6 +629,87 @@ class _ProductActions extends StatelessWidget {
           icon: const Icon(Icons.delete_outline),
         ),
       ],
+    );
+  }
+}
+
+class _DocumentTypeSection extends StatelessWidget {
+  const _DocumentTypeSection({required this.controller});
+
+  final InvoiceFormController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'invoice_type'.tr,
+      child: Obx(
+        () => Column(
+          children: [
+            DropdownButtonFormField<InvoiceDocumentType>(
+              key: ValueKey(controller.documentType.value),
+              initialValue: controller.documentType.value,
+              decoration: InputDecoration(
+                labelText: 'invoice_type'.tr,
+                prefixIcon: const Icon(Icons.description_outlined),
+              ),
+              items: InvoiceDocumentType.values
+                  .map(
+                    (type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(type.name.tr),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  controller.documentType.value = value;
+                }
+              },
+            ),
+            if (controller.documentType.value ==
+                InvoiceDocumentType.custom) ...[
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: controller.customDocumentTypeController,
+                label: 'custom_invoice_type'.tr,
+              ),
+            ],
+            if (controller.documentType.value ==
+                InvoiceDocumentType.invoice) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<InvoicePaymentMethod>(
+                key: ValueKey(controller.paymentMethod.value),
+                initialValue: controller.paymentMethod.value,
+                decoration: InputDecoration(
+                  labelText: 'payment_method'.tr,
+                  prefixIcon: const Icon(Icons.payments_outlined),
+                ),
+                items: InvoicePaymentMethod.values
+                    .map(
+                      (method) => DropdownMenuItem(
+                        value: method,
+                        child: Text(method.name.tr),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    controller.paymentMethod.value = value;
+                  }
+                },
+              ),
+              if (controller.paymentMethod.value ==
+                  InvoicePaymentMethod.custom) ...[
+                const SizedBox(height: 12),
+                AppTextField(
+                  controller: controller.customPaymentMethodController,
+                  label: 'custom_payment_method'.tr,
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1001,4 +1105,15 @@ String _initial(String value) {
     return '?';
   }
   return trimmed.characters.first.toUpperCase();
+}
+
+TextDirection _invoiceTextDirection(BuildContext context) {
+  final languageCode = Get.locale?.languageCode;
+  if (languageCode == 'ar') {
+    return TextDirection.rtl;
+  }
+  if (languageCode == 'en') {
+    return TextDirection.ltr;
+  }
+  return Directionality.of(context);
 }

@@ -26,6 +26,10 @@ class InvoiceFormController extends GetxController {
   final currencyController = TextEditingController();
   final currencySymbolController = TextEditingController();
   final notesController = TextEditingController();
+  final customDocumentTypeController = TextEditingController();
+  final customPaymentMethodController = TextEditingController();
+  final documentType = InvoiceDocumentType.invoice.obs;
+  final paymentMethod = InvoicePaymentMethod.cash.obs;
   final isSaving = false.obs;
   final currencyVersion = 0.obs;
 
@@ -98,6 +102,10 @@ class InvoiceFormController extends GetxController {
     currencyController.text = invoice.currencyCode;
     currencySymbolController.text = invoice.currencySymbol;
     notesController.text = invoice.notes;
+    documentType.value = invoice.documentType;
+    customDocumentTypeController.text = invoice.customDocumentType;
+    paymentMethod.value = invoice.paymentMethod;
+    customPaymentMethodController.text = invoice.customPaymentMethod;
     final persistedCustomer = customers.firstWhereOrNull(
       (customer) => customer.id == invoice.customerId,
     );
@@ -251,6 +259,18 @@ class InvoiceFormController extends GetxController {
       discount: discount,
       tax: tax,
       notes: notesController.text.trim(),
+      documentType: documentType.value,
+      customDocumentType: documentType.value == InvoiceDocumentType.custom
+          ? customDocumentTypeController.text.trim()
+          : '',
+      paymentMethod: documentType.value == InvoiceDocumentType.invoice
+          ? paymentMethod.value
+          : InvoicePaymentMethod.cash,
+      customPaymentMethod:
+          documentType.value == InvoiceDocumentType.invoice &&
+              paymentMethod.value == InvoicePaymentMethod.custom
+          ? customPaymentMethodController.text.trim()
+          : '',
     );
   }
 
@@ -261,6 +281,9 @@ class InvoiceFormController extends GetxController {
     }
     if (items.isEmpty) {
       Get.snackbar('add_products'.tr, 'product_required'.tr);
+      return;
+    }
+    if (!_validateDocumentFields()) {
       return;
     }
 
@@ -288,6 +311,9 @@ class InvoiceFormController extends GetxController {
       Get.snackbar('add_products'.tr, 'product_required'.tr);
       return;
     }
+    if (!_validateDocumentFields()) {
+      return;
+    }
     final invoice = buildInvoice(status: InvoiceStatus.draft);
     await _hiveService.draftInvoicesBox.put(invoice.id, invoice.toMap());
     Get.snackbar('draft_saved'.tr, 'draft_saved_message'.tr);
@@ -302,7 +328,25 @@ class InvoiceFormController extends GetxController {
       Get.snackbar('add_products'.tr, 'product_required'.tr);
       return;
     }
+    if (!_validateDocumentFields()) {
+      return;
+    }
     Get.toNamed(AppRoutes.pdfPreview, arguments: buildInvoice());
+  }
+
+  bool _validateDocumentFields() {
+    if (documentType.value == InvoiceDocumentType.custom &&
+        customDocumentTypeController.text.trim().isEmpty) {
+      Get.snackbar('invoice_type'.tr, 'custom_invoice_type_required'.tr);
+      return false;
+    }
+    if (documentType.value == InvoiceDocumentType.invoice &&
+        paymentMethod.value == InvoicePaymentMethod.custom &&
+        customPaymentMethodController.text.trim().isEmpty) {
+      Get.snackbar('payment_method'.tr, 'custom_payment_method_required'.tr);
+      return false;
+    }
+    return true;
   }
 
   double _nonNegative(double value) {
@@ -319,6 +363,8 @@ class InvoiceFormController extends GetxController {
     currencyController.dispose();
     currencySymbolController.dispose();
     notesController.dispose();
+    customDocumentTypeController.dispose();
+    customPaymentMethodController.dispose();
     super.onClose();
   }
 }

@@ -2,6 +2,10 @@ import 'invoice_item.dart';
 
 enum InvoiceStatus { draft, saved, paid, overdue, cancelled }
 
+enum InvoiceDocumentType { invoice, quote, custom }
+
+enum InvoicePaymentMethod { cash, credit, custom }
+
 class Invoice {
   const Invoice({
     required this.id,
@@ -18,6 +22,10 @@ class Invoice {
     this.discount = 0,
     this.tax = 0,
     this.notes = '',
+    this.documentType = InvoiceDocumentType.invoice,
+    this.customDocumentType = '',
+    this.paymentMethod = InvoicePaymentMethod.cash,
+    this.customPaymentMethod = '',
   });
 
   factory Invoice.fromMap(Map<dynamic, dynamic> map) {
@@ -49,6 +57,18 @@ class Invoice {
       discount: _nonNegative((map['discount'] as num?)?.toDouble() ?? 0),
       tax: _nonNegative((map['tax'] as num?)?.toDouble() ?? 0),
       notes: map['notes']?.toString() ?? '',
+      documentType: _enumValue(
+        InvoiceDocumentType.values,
+        map['documentType'],
+        InvoiceDocumentType.invoice,
+      ),
+      customDocumentType: map['customDocumentType']?.toString() ?? '',
+      paymentMethod: _enumValue(
+        InvoicePaymentMethod.values,
+        map['paymentMethod'],
+        InvoicePaymentMethod.cash,
+      ),
+      customPaymentMethod: map['customPaymentMethod']?.toString() ?? '',
     );
   }
 
@@ -59,6 +79,25 @@ class Invoice {
   double get safeTax => _nonNegative(tax);
 
   double get finalTotal => subtotal - safeDiscount + safeTax;
+
+  String get effectiveDocumentType {
+    final custom = customDocumentType.trim();
+    if (documentType == InvoiceDocumentType.custom && custom.isNotEmpty) {
+      return custom;
+    }
+    return documentType.name;
+  }
+
+  String get effectivePaymentMethod {
+    if (documentType != InvoiceDocumentType.invoice) {
+      return '';
+    }
+    final custom = customPaymentMethod.trim();
+    if (paymentMethod == InvoicePaymentMethod.custom && custom.isNotEmpty) {
+      return custom;
+    }
+    return paymentMethod.name;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -76,6 +115,10 @@ class Invoice {
       'discount': safeDiscount,
       'tax': safeTax,
       'notes': notes,
+      'documentType': documentType.name,
+      'customDocumentType': customDocumentType,
+      'paymentMethod': paymentMethod.name,
+      'customPaymentMethod': customPaymentMethod,
     };
   }
 
@@ -94,6 +137,10 @@ class Invoice {
     double? discount,
     double? tax,
     String? notes,
+    InvoiceDocumentType? documentType,
+    String? customDocumentType,
+    InvoicePaymentMethod? paymentMethod,
+    String? customPaymentMethod,
   }) {
     return Invoice(
       id: id ?? this.id,
@@ -110,6 +157,17 @@ class Invoice {
       discount: _nonNegative(discount ?? this.discount),
       tax: _nonNegative(tax ?? this.tax),
       notes: notes ?? this.notes,
+      documentType: documentType ?? this.documentType,
+      customDocumentType: customDocumentType ?? this.customDocumentType,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      customPaymentMethod: customPaymentMethod ?? this.customPaymentMethod,
+    );
+  }
+
+  static T _enumValue<T extends Enum>(List<T> values, Object? raw, T fallback) {
+    return values.firstWhere(
+      (value) => value.name == raw?.toString(),
+      orElse: () => fallback,
     );
   }
 
@@ -134,4 +192,8 @@ class Invoice {
   final double discount;
   final double tax;
   final String notes;
+  final InvoiceDocumentType documentType;
+  final String customDocumentType;
+  final InvoicePaymentMethod paymentMethod;
+  final String customPaymentMethod;
 }

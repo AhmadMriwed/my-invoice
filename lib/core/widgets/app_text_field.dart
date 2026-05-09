@@ -14,6 +14,8 @@ class AppTextField extends StatelessWidget {
     this.inputFormatters,
     this.obscureText = false,
     this.enabled = true,
+    this.textAlign,
+    this.textDirection,
     super.key,
   });
 
@@ -28,6 +30,8 @@ class AppTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final bool obscureText;
   final bool enabled;
+  final TextAlign? textAlign;
+  final TextDirection? textDirection;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +44,8 @@ class AppTextField extends StatelessWidget {
       inputFormatters: inputFormatters,
       obscureText: obscureText,
       enabled: enabled,
+      textAlign: textAlign ?? TextAlign.start,
+      textDirection: textDirection,
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,

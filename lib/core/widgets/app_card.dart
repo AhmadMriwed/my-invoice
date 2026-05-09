@@ -24,6 +24,7 @@ class AppCard extends StatefulWidget {
 
 class _AppCardState extends State<AppCard> {
   bool _isHovered = false;
+  bool? _pendingHover;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +34,6 @@ class _AppCardState extends State<AppCard> {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       margin: widget.margin,
-      padding: widget.padding,
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
@@ -52,28 +52,42 @@ class _AppCardState extends State<AppCard> {
           ),
         ],
       ),
-      child: widget.child,
-    );
-
-    return MouseRegion(
-      onEnter: (_) => _setHover(true),
-      onExit: (_) => _setHover(false),
+      clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: widget.onTap,
-          child: card,
+          child: Padding(padding: widget.padding, child: widget.child),
         ),
       ),
     );
+
+    if (!widget.hoverable) {
+      return card;
+    }
+
+    return MouseRegion(
+      onEnter: (_) => _scheduleHover(true),
+      onExit: (_) => _scheduleHover(false),
+      child: card,
+    );
   }
 
-  void _setHover(bool value) {
+  void _scheduleHover(bool value) {
     if (!widget.hoverable || _isHovered == value) {
       return;
     }
-    setState(() => _isHovered = value);
+    _pendingHover = value;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pendingHover == null) {
+        return;
+      }
+      final next = _pendingHover!;
+      _pendingHover = null;
+      if (_isHovered != next) {
+        setState(() => _isHovered = next);
+      }
+    });
   }
 }
-
